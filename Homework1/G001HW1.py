@@ -77,18 +77,19 @@ def main():
         most_popular_H = productPopularity1.sortBy(lambda x: x[1], ascending=False).take(H)
         print(f"Top {H} Products and their Popularities:")
         for pop in most_popular_H:
-            print(f"Product {pop[0]}, Popularity {pop[1]};", end = " ")
+            print(f"Product {pop[0]} Popularity {pop[1]};", end = " ")
         
     # TASK 6: If H=0, collect and print all pairs of productPopularity1\productPopularity2 in increasing lexicographic order of ProductID
     if H==0:
         most_popular1 = productPopularity1.sortByKey().collect()
-        print("\n productPopularity1:")
+        print("\nproductPopularity1:")
         for pop in most_popular1:
-            print(f"Product {pop[0]}, Popularity {pop[1]};", end = " ")
+            print(f"Product: {pop[0]} Popularity: {pop[1]};", end = " ")
         most_popular2 = productPopularity2.sortByKey().collect()
-        print("\n productPopularity2:")
+        print("\nproductPopularity2:")
         for pop in most_popular2:
-            print(f"Product {pop[0]}, Popularity {pop[1]};", end = " ")
+            print(f"Product: {pop[0]} Popularity: {pop[1]};", end = " ")
+    print("\n")
 
     
 
