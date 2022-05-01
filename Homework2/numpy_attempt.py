@@ -3,19 +3,27 @@ import sys
 import os
 import numpy as np
 
-def findPerfectOutliers(points: np.array, num_of_outiliers: int) -> np.array:
+def remove_perfect_outliers(points: np.array, weights: np.array, num_of_outiliers: int) -> np.array:
     refined_points = points.copy()
     # create matrix with all distance between all points(for each point is calculated the distance between all other points)
     n, dims = points.shape[0], points.shape[1]
     points_dist = np.zeros(shape=(n, n), dtype=points.dtype)
-    onesMat = np.full(shape=())
     for i in range(n):
-        
-        points_dist[i] = points - points[i]
+        coord_diff_squared = np.square(points - points[i])
+        points_dist[i] = np.sum(a=coord_diff_squared, axis=1, dtype=points.dtype)
+    points_dist = points_dist[~np.eye(n,dtype=bool)].reshape(n,-1)
+    print(points_dist)
+
+    #find the points which have the maximum minimum distance between each other
+    #min_dist = points_dist.min(axis=1)
     
+    #outliers = min_dist[:num_of_outiliers]
+    
+
+
     # now to compute the average distance of each point between all others
-    avgDist = np.full(shape=n, fill_value=1., dtype=points.dtype)
-    for i in range(n):
+    #avg_dist = np.full(shape=n, fill_value=0., dtype=points.dtype)
+    
 
 
     return refined_points
@@ -43,10 +51,12 @@ def main():
     Z = int(Z)
     assert Z >= 0, "K must be positive"
 
-
+    np.set_printoptions(precision=2, linewidth=200)
+    print(data)
+    print()
     # Find outliers
     if Z > 0:
-        a = 0
+        newData = remove_perfect_outliers(data, np.zeros(shape=1), Z)
         
     
     
