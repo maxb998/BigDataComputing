@@ -1,14 +1,15 @@
+import time
+import sys
+import math
 import sys
 import os
-import csv
-import time
-import math
+
 
 def readVectorsSeq(filename):
     with open(filename) as f:
         result = [tuple(map(float, i.split(','))) for i in f]
     return result
-
+    
     
 def euclidean(point1,point2):
     res = 0
@@ -17,46 +18,101 @@ def euclidean(point1,point2):
         res +=  diff*diff
     return math.sqrt(res)
 
+def Bz(x,r,Z):
+    result = []
+    for y in Z:
+        if euclidean(x,y)<=r:
+            result.append(y)
+    return result
 
 def SeqWeightedOutliers(P,W,k,z,alpha):
-
     # find r which is the minimum half distance between the first k+z+1 points
-    r = euclidean(P[0], P[1])
-    for i in range(k+z):
-        for j in range(i+1,k+z+1):
-            eucl_dist = euclidean(P[i], P[j])
-            if eucl_dist < r:
-                r = eucl_dist
-    r = r / 2
+    r_min = []
+    for i in range(k+z+1):
+        for j in range(k+z+1):
+            if i!=j:
+                r_min.append(euclidean(P[i], P[j]))
 
-    while True:
-        a = 10
+    r = min(r_min)/2
+    # r_i is the initial guess
+    r_i = r
+    # n_guess is the number of cycles
+    n_guess = 0
+    while(True):
+        Z = P.copy()
+        S = []
+        Wz = sum(W)
+        n_guess += 1
+        temp = 0
+        while ((len(S)<k) and (Wz>0)):
+            max_v = 0
+            for x in P:
+                for j in Bz(x,(1+2*alpha)*r, Z):
+                    temp += W[P.index(j)] 
+                ball_weight = temp 
+                if ball_weight > max_v:
+                    max_v = ball_weight
+                    newcenter = x
+            S.append(x)
+            for y in Bz(newcenter,(3+4*alpha)*r, Z):
+                Z.remove(y)
+                Wz = Wz - W[P.index(y)]
+        if Wz<=z:
+            # r_f is the initial guess
+            r_f = r
+            return S, r_i, r_f, n_guess
+        else:
+            r = 2*r
+            
+                
+def ComputeObjective(P,S,z):
+    result = []
+    for i in P:
+        for j in S:
+            result.append(euclidean(i,j))
 
-
-    return 0
-
+    result.sort()
+    for i in range(z):
+        result.pop()
+    return result[-1]
 
 def main():
 
     # Check argv lenght and content
-    assert len(sys.argv) == 4, "Usage: <Filename> <K> <Z>"
-
+    assert len(sys.argv) == 4, "Usage: python G001HW2.py <Filename> <k> <z>"
+    
     filename = sys.argv[1]
     assert os.path.isfile(filename), "File or folder not found"
-    inputPoints = readVectorsSeq(filename=filename)
+    # Read the points in the input file into a list of tuple
+    inputPoints = readVectorsSeq(filename)
+    # Create a list of ones 'weights' of the same cardinality of inputPoints
+    n = len(inputPoints)
+    weights = [1]*n
     
-    K = sys.argv[2]
-    assert K.isdigit, "K must be an integer value"
-    K = int(K)
-    assert K >= 2, "K must be at least 2"
+    k = sys.argv[2]
+    assert k.isdigit, "K must be an integer value"
+    k = int(k)
+    assert k >= 0, "K must be positive"
+    
+    z = sys.argv[3]
+    assert z.isdigit, "Z must be an integer value"
+    z = int(z)
+    assert z >= 0, "Z must be positive"
+    
+    solution, r_i, r_f, n_guess = SeqWeightedOutliers(inputPoints,weights,k,z,0)
+    objective =  ComputeObjective(inputPoints,solution,z)
 
-    Z = sys.argv[3]
-    assert Z.isdigit, "Z must be an integer value"
-    Z = int(Z)
-    assert Z >= 0, "K must be positive"
-    
-    
-
+    # Output
+    print("Input size n =", n)
+    print("Number of centers k =", k)
+    print("Number of outliers z =", z)
+    print("Initial guess =", r_i)
+    print("Final guess =", r_f)
+    print("Number of guesses =", n_guess)
+    print("Objective function =", objective)
+    #print("Time of SeqWeightedOutliers =", )
+     
+            
 
 
 
