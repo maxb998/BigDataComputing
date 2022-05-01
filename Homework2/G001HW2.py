@@ -58,7 +58,7 @@ def SeqWeightedOutliers(P,W,k,z,alpha):
                 Z.remove(y)
                 Wz = Wz - W[P.index(y)]
         if Wz<=z:
-            # r_f is the initial guess
+            # r_f is the final guess
             r_f = r
             return S, r_i, r_f, n_guess
         else:
