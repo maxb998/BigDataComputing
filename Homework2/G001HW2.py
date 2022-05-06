@@ -42,10 +42,11 @@ def SeqWeightedOutliers(P,W,k,z,alpha):
         S = []
         Wz = sum(W)
         n_guess += 1
-        temp = 0
+        
         while ((len(S)<k) and (Wz>0)):
             max_v = 0
             for x in P:
+                temp = 0
                 for j in Bz(x,(1+2*alpha)*r, Z):
                     temp += W[P.index(j)] 
                 ball_weight = temp 
