@@ -4,7 +4,19 @@ import numpy as np
 
 def main():
     
-    points: np.ndarray = np.array()
+    p: np.ndarray = np.concatenate((np.arange(10), np.arange(10)))
+    np.random.shuffle(p)
+
+    print(p)
+
+    p_sorted_ids: np.ndarray = p.argsort()
+
+    print(p[p_sorted_ids])
+
+    print(p_sorted_ids)
+
+    print(p.shape)
+    print(p_sorted_ids.shape)
 
 
 
