@@ -1,7 +1,6 @@
 import time
 import sys
 import math
-import sys
 import os
 
 
@@ -43,17 +42,18 @@ def SeqWeightedOutliers(P,W,k,z,alpha):
         S = []
         Wz = sum(W)
         n_guess += 1
-        temp = 0
+        
         while ((len(S)<k) and (Wz>0)):
             max_v = 0
             for x in P:
+                temp = 0
                 for j in Bz(x,(1+2*alpha)*r, Z):
                     temp += W[P.index(j)] 
                 ball_weight = temp 
                 if ball_weight > max_v:
                     max_v = ball_weight
                     newcenter = x
-            S.append(x)
+            S.append(newcenter)
             for y in Bz(newcenter,(3+4*alpha)*r, Z):
                 Z.remove(y)
                 Wz = Wz - W[P.index(y)]
