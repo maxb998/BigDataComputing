@@ -53,7 +53,7 @@ def SeqWeightedOutliers(P,W,k,z,alpha):
                 if ball_weight > max_v:
                     max_v = ball_weight
                     newcenter = x
-            S.append(x)
+            S.append(newcenter)
             for y in Bz(newcenter,(3+4*alpha)*r, Z):
                 Z.remove(y)
                 Wz = Wz - W[P.index(y)]
