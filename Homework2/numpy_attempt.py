@@ -4,22 +4,9 @@ import time
 import numpy as np
 
 
-def calculate_r(points: np.ndarray, n: int) -> np.float64:
-    n = n-1
-    reduced_points: np.ndarray = points[:n]
-    distances: np.ndarray = np.zeros(shape=(n, n), dtype=points.dtype)
-
-    for i in range(n):
-        distances[i] = np.linalg.norm(x=(reduced_points-reduced_points[i]), axis=-1)
-    distances = distances[~np.eye(n,dtype=bool)].reshape(n,-1)  # remove diagonal which is all zeros
-
-    return (distances.min() / 2.)
-
-
-def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.float64) -> tuple[np.ndarray, int, np.float64, np.float64]:
+def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.float64) -> np.ndarray:
 
     n, dims = P.shape[0], P.shape[1]
-    range_n: np.ndarray = np.arange(n)
     attempts: int = 0
 
     # calculate array containing the distance between all points squared(because when we need to compare the data it's possible to save little time by not doing the square root)
@@ -27,15 +14,19 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
     for i in range(n):
         coord_diff_squared: np.ndarray = np.square(P - P[i])
         all_dist_squared[i] = np.sum(a=coord_diff_squared, axis=1, dtype=P.dtype)
-    #all_distances_squared = all_distances_squared[~np.eye(n,dtype=bool)].reshape(n,-1)  # remove diagonal which is all zeros
 
-    r: np.float64 = calculate_r(P, k+z+1)
-    first_r: np.float64 = r
+    # calculate first guess
+    guess_samples: int = k + z + 1
+    r_map_matr: np.ndarray = np.zeros(shape=(n,n), dtype=np.bool8)
+    r_map_matr[:guess_samples, :guess_samples] = all_dist_squared[:guess_samples, :guess_samples]
+    r_squared: np.float64 = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+    
+    print("Initial guess = ", np.sqrt(r_squared))
 
     while True:
         S: np.ndarray = np.zeros(shape=(k, dims), dtype=P.dtype)
         is_uncovered: np.ndarray = np.ones(shape=n, dtype=np.bool8)
-        ball_radius_squared: np.float64 = ((1.+2.*alpha)*r)**2 # used when selecting the center
+        ball_radius_squared: np.float64 = (1.+2.*alpha)*(1.+2.*alpha)*r_squared # used when selecting the center
 
         for i in range(k):
             best_weight: np.float64 = 0.
@@ -49,41 +40,37 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
                         best_pt_id = current_pt
 
             S[i] = P[best_pt_id]    # add new center
-            ball_radius_squared: np.float64 = ((3.+4.*alpha)*r)**2 #used when removing new covered points
+            ball_radius_squared: np.float64 = (3.+4.*alpha)*(3.+4.*alpha)*r_squared #used when removing new covered points
             is_uncovered[all_dist_squared[best_pt_id] < ball_radius_squared] = False
 
         outliers_w = np.sum(a=W, where=is_uncovered)
         attempts += 1
         if outliers_w <= z:
-            return S, attempts, first_r, r
+            print("Final guess = ", np.sqrt(r_squared))
+            print("Number of guesses = ", attempts)
+            return S
         else:
-            r = r * 2.
+            r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
 
-def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, weights: np.ndarray, z: int) -> np.float64 :
-    n, dims, k = inputPoints.shape[0], inputPoints.shape[1], solution.shape[0]
+
+def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, z: int) -> np.float64 :
+    n, k = inputPoints.shape[0], solution.shape[0]
     dist_from_centers: np.ndarray = np.zeros(shape=(n,k), dtype=inputPoints.dtype)
 
     for i in range(n):
-        coord_diff_squared: np.ndarray = np.square(inputPoints[i] - solution)
+        coord_diff_squared: np.ndarray = np.square(np.subtract(solution, inputPoints[i]))   # shape=(k,dims)
         dist_from_centers[i] = np.sum(a=coord_diff_squared, axis=1, dtype=inputPoints.dtype)
+        #dist_from_centers[i] = np.sum(a=np.square(np.subtract(solution, inputPoints[i])), axis=1, dtype=inputPoints.dtype)
     
     min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)
-    sorted_indexs: np.ndarray = np.argsort(a=min_dist_from_centers)
 
-    pos: int = -1
-    weight_sum: int = 0
-    for i in range(n-1, 0, -1):
-        weight_sum += weights[sorted_indexs[i]]
-        if weight_sum > z:
-            pos: int = sorted_indexs[i]
-            break
+    for i in range(z):
+        min_dist_from_centers[np.argmax(a=min_dist_from_centers)] = 0.
             
+    return np.sqrt(min_dist_from_centers[np.argmax(a=min_dist_from_centers)])
 
-    return np.sqrt(min_dist_from_centers[pos])
 
 def main():
-    np.set_printoptions(precision=2, linewidth=200)
-
     # Check argv lenght and content
     assert len(sys.argv) == 4, "Usage: <Filename> <K> <Z>"
 
@@ -111,24 +98,23 @@ def main():
     # alpha
     alpha: np.float64 = 0.
 
+    # print input data informations
+    print("Input size n = ", data.shape[0])
+    print("Number of centers k = ", k)
+    print("Number of outliers z = ", z)
+
     # do k-center with weight and outliers
     millis_start: float = time.time() * 1000.
-    centers, attemps, first_guess, final_guess = SeqWeightedOutliers(P=data, W=weights, k=k, z=z, alpha=alpha)
+    centers = SeqWeightedOutliers(P=data, W=weights, k=k, z=z, alpha=alpha)
     millis_end: float = time.time() * 1000.
 
     # calculate time needed in milliseconds
     millis_duration: float = millis_end - millis_start
 
     # Compute objective
-    obj: np.float64 = ComputeObjective(inputPoints=data, solution=centers, weights=weights, z=z)
+    obj: np.float64 = ComputeObjective(inputPoints=data, solution=centers, z=z)
 
     # print output
-    print("Input size n = ", data.shape[0])
-    print("Number of centers k = ", k)
-    print("Number of outliers z = ", z)
-    print("Initial guess = ", first_guess)
-    print("Final guess = ", final_guess)
-    print("Number of guesses = ", attemps)
     print("Objective function = ", obj)
     print("Time of SeqWeightedOutliers = ", millis_duration)
 

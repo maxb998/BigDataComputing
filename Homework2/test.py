@@ -1,26 +1,31 @@
 from ast import Lambda
 import time
 import sys
-from math import sqrt
+from math import dist, sqrt
 import os
 
 from regex import R
 
 def readVectorsSeq(filename: str):
     with open(filename) as f:
-        result: list[tuple[float, ...]] = [tuple(map(float, i.split(','))) for i in f]
+        result: list[tuple] = [tuple(map(float, i.split(','))) for i in f]
     return result
 
-def SeqWeightedOutliers(P: list[tuple[float, ...]], W: list[float], k: int, z: int, alpha: float) -> list[tuple[float, ...]]:
+def SeqWeightedOutliers(P: list[tuple], W: list[float], k: int, z: int, alpha: float) -> list[tuple]:
     dims: int = len(P[0])
     n: int = len(P)
     attempts: int = 0
 
     # Compute matrix n*n containg all distances SQUARED between each and all points
-    all_dist_squared: list[tuple[float, ...]] = [[0.] * n] * n
+    all_dist_squared: list[list[float]] = [[0.] * n] * n
     for i in range(n):
         for j in range(n):
-            all_dist_squared[i] = tuple(map(lambda x, y: (x-y)*(x-y), P[i], P[j]))
+            dists: float = sum(list(map(lambda x, y: (x-y)*(x-y), P[i], P[j])))
+            print("dist = ", dists , "i = ", i, "j = ", j)
+            all_dist_squared[i][14-j] = sum(list(map(lambda x, y: (x-y)*(x-y), P[i], P[j])))
+
+    print(sum(list(map(lambda x,y: x-y, P[0],P[0]))))
+    print(all_dist_squared[0][1])
     
     # Compute the first guess(r) but squared
     min: float = all_dist_squared[0][1]
@@ -32,7 +37,7 @@ def SeqWeightedOutliers(P: list[tuple[float, ...]], W: list[float], k: int, z: i
     print("Initial guess: ", sqrt(r_squared))
 
     while True:
-        S: list[tuple[float, ...]] = [[0.] * dims] * k
+        S: list[tuple] = [tuple([0. for _ in range(dims)])] * k
         is_uncovered: list[bool] = [True] * n
         ball_radius_squared: float = (1.+2.*alpha)*(1.+2.*alpha)*r_squared  # ball radius for the center selection
 
@@ -40,9 +45,10 @@ def SeqWeightedOutliers(P: list[tuple[float, ...]], W: list[float], k: int, z: i
             best_weight: float = 0.
             best_pt_id: int = 0
 
-            for pt_id in range[n]:
-                if is_uncovered[pt_id]:
-                    current_weight: float = sum(W[all_dist_squared[pt_id] < ball_radius_squared])
+            for possible_center_id in range(n):
+                if is_uncovered[possible_center_id]:
+                    for pt_id in range(n):
+                        current_weight: float = sum(W[all_dist_squared[possible_center_id][pt_id] < ball_radius_squared])
                     if current_weight > best_weight:
                         best_weight: float = current_weight
                         best_pt_id: int = pt_id
@@ -62,12 +68,12 @@ def SeqWeightedOutliers(P: list[tuple[float, ...]], W: list[float], k: int, z: i
             r_squared *= 4 # because it is 2^2
 
 
-def ComputeObjective(inputPoints: list[tuple[float, ...]], solution: list[tuple[float, ...]], z: int) -> float :
+def ComputeObjective(inputPoints: list[tuple], solution: list[tuple], z: int) -> float :
     n: int = len(inputPoints)
     dims: int = len(inputPoints[0])
     k: int = len(solution[0])
     min_dist_from_centers_squared: list[float] = [0.] * n
-    dist_from_centers_squared: tuple[float, ...] = [0.]*k
+    dist_from_centers_squared: tuple = [0.]*k
 
     for i in range(n):
         for j in range(k):
@@ -88,7 +94,7 @@ def main():
 
     filename: str = sys.argv[1]
     assert os.path.isfile(filename), "File or folder not found"
-    inputPoints: list[tuple[float, ...]] = readVectorsSeq(filename=filename)
+    inputPoints: list[tuple] = readVectorsSeq(filename=filename)
     
     k: str = sys.argv[2]
     assert k.isdigit(), "K must be an integer value"
@@ -112,7 +118,7 @@ def main():
 
     # run k-centers with outliers
     millis_start: float = time.time() * 1000.
-    solution: list[tuple[float, ...]] = SeqWeightedOutliers(P=inputPoints, W=weights, k=k, z=z, alpha=alpha)
+    solution: list[tuple] = SeqWeightedOutliers(P=inputPoints, W=weights, k=k, z=z, alpha=alpha)
     millis_end: float = time.time() * 1000.
 
     # calculate time needed in milliseconds
