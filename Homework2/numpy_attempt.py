@@ -9,11 +9,11 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
     n, dims = P.shape[0], P.shape[1]
     attempts: int = 0
 
-    # calculate array containing the distance between all points squared(because when we need to compare the data it's possible to save little time by not doing the square root)
+    # calculate array containing the distance between all points squared
+    # (because when we need to compare the data it's possible to save little time by not doing the square root)
     all_dist_squared: np.ndarray = np.zeros(shape=(n,n), dtype=P.dtype)
     for i in range(n):
-        coord_diff_squared: np.ndarray = np.square(P - P[i])
-        all_dist_squared[i] = np.sum(a=coord_diff_squared, axis=1, dtype=P.dtype)
+        all_dist_squared[i] = np.sum(a=np.square(P - P[i]), axis=1, dtype=P.dtype)
 
     # calculate first guess
     guess_samples: int = k + z + 1
@@ -25,25 +25,25 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
 
     while True:
         S: np.ndarray = np.zeros(shape=(k, dims), dtype=P.dtype)
-        is_uncovered: np.ndarray = np.ones(shape=n, dtype=np.bool8)
+        iter_weights: np.ndarray = np.copy(a=W)
         ball_radius_squared: np.float64 = (1.+2.*alpha)*(1.+2.*alpha)*r_squared # used when selecting the center
 
         for i in range(k):
             best_weight: np.float64 = 0.
-            best_pt_id: int = 0
+            best_pt_id: int = -1
 
             for current_pt in range(n):
-                if is_uncovered[current_pt]:
-                    current_weight = np.sum(a=W, dtype=np.float64, where=all_dist_squared[current_pt] < ball_radius_squared)
+                if iter_weights[current_pt] > 0:
+                    current_weight = np.sum(a=iter_weights, dtype=np.float64, where=all_dist_squared[current_pt] < ball_radius_squared)
                     if current_weight > best_weight:
                         best_weight = current_weight
                         best_pt_id = current_pt
 
             S[i] = P[best_pt_id]    # add new center
             ball_radius_squared: np.float64 = (3.+4.*alpha)*(3.+4.*alpha)*r_squared #used when removing new covered points
-            is_uncovered[all_dist_squared[best_pt_id] < ball_radius_squared] = False
+            iter_weights[all_dist_squared[best_pt_id] < ball_radius_squared] = 0.
 
-        outliers_w = np.sum(a=W, where=is_uncovered)
+        outliers_w = np.sum(a=iter_weights)
         attempts += 1
         if outliers_w <= z:
             print("Final guess = ", np.sqrt(r_squared))
@@ -58,19 +58,24 @@ def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, z: int) -> n
     dist_from_centers: np.ndarray = np.zeros(shape=(n,k), dtype=inputPoints.dtype)
 
     for i in range(n):
-        coord_diff_squared: np.ndarray = np.square(np.subtract(solution, inputPoints[i]))   # shape=(k,dims)
-        dist_from_centers[i] = np.sum(a=coord_diff_squared, axis=1, dtype=inputPoints.dtype)
-        #dist_from_centers[i] = np.sum(a=np.square(np.subtract(solution, inputPoints[i])), axis=1, dtype=inputPoints.dtype)
+        dist_from_centers[i] = np.sum(a=np.square(np.subtract(solution, inputPoints[i])), axis=1, dtype=inputPoints.dtype)
     
     min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)
+
+    #print(solution)
+    #print(dist_from_centers)
+    #sorted_dist: np.ndarray = np.sqrt(np.sort(min_dist_from_centers))
+    #print(sorted_dist[(n-3-z):(n-z)])
+    #print(np.unique(min_dist_from_centers))
 
     for i in range(z):
         min_dist_from_centers[np.argmax(a=min_dist_from_centers)] = 0.
             
-    return np.sqrt(min_dist_from_centers[np.argmax(a=min_dist_from_centers)])
+    return np.sqrt(np.max(min_dist_from_centers))
 
 
 def main():
+    np.set_printoptions(precision=2, linewidth=300)
     # Check argv lenght and content
     assert len(sys.argv) == 4, "Usage: <Filename> <K> <Z>"
 
