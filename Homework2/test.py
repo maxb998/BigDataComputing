@@ -1,4 +1,5 @@
 from ast import Lambda
+from operator import pos
 import time
 import sys
 from math import dist, sqrt
@@ -17,50 +18,49 @@ def SeqWeightedOutliers(P: list[tuple], W: list[float], k: int, z: int, alpha: f
     attempts: int = 0
 
     # Compute matrix n*n containg all distances SQUARED between each and all points
-    all_dist_squared: list[list[float]] = [[0.] * n] * n
+    all_dist_squared: list[tuple] = []
     for i in range(n):
+        i_minus_all: list[float] = []
         for j in range(n):
-            dists: float = sum(list(map(lambda x, y: (x-y)*(x-y), P[i], P[j])))
-            print("dist = ", dists , "i = ", i, "j = ", j)
-            all_dist_squared[i][14-j] = sum(list(map(lambda x, y: (x-y)*(x-y), P[i], P[j])))
-
-    print(sum(list(map(lambda x,y: x-y, P[0],P[0]))))
-    print(all_dist_squared[0][1])
+            dists: float = sum(tuple(map(lambda x, y: (x-y)*(x-y), P[i], P[j])))
+            i_minus_all.append(dists)
+        all_dist_squared.append(tuple(i_minus_all))
     
     # Compute the first guess(r) but squared
     min: float = all_dist_squared[0][1]
-    for i in range(1,k+z+1):
-        for j in range(i,k+z+1):
+    for i in range(0,k+z+1):
+        for j in range(i+1,k+z+1):
             if min > all_dist_squared[i][j]:
                 min: float = all_dist_squared[i][j]
-    r_squared: float = min / 2.
+    r_squared: float = min / 4.
     print("Initial guess: ", sqrt(r_squared))
 
     while True:
-        S: list[tuple] = [tuple([0. for _ in range(dims)])] * k
-        is_uncovered: list[bool] = [True] * n
+        print(attempts)
+        S: list[tuple] = []
         ball_radius_squared: float = (1.+2.*alpha)*(1.+2.*alpha)*r_squared  # ball radius for the center selection
+        weight: list[float] = W.copy()
 
         for i in range(k):
             best_weight: float = 0.
             best_pt_id: int = 0
 
             for possible_center_id in range(n):
-                if is_uncovered[possible_center_id]:
-                    for pt_id in range(n):
-                        current_weight: float = sum(W[all_dist_squared[possible_center_id][pt_id] < ball_radius_squared])
-                    if current_weight > best_weight:
-                        best_weight: float = current_weight
-                        best_pt_id: int = pt_id
+                current_weight: float = sum(weight[p] for p in range(n) if all_dist_squared[possible_center_id][p] < ball_radius_squared)
+                if current_weight > best_weight:
+                    best_weight: float = current_weight
+                    best_pt_id: int = possible_center_id
             
-            S[i] = P[best_pt_id]
+            S.append(tuple(P[best_pt_id][j] for j in range(dims))) 
             ball_radius_squared: float = (3.+4.*alpha)*(3.+4.*alpha)*r_squared # ball radius for the covered points detection
-            is_uncovered[all_dist_squared[best_pt_id] < ball_radius_squared] = False
+            for j in range(n):
+                if all_dist_squared[best_pt_id][j] < ball_radius_squared:
+                    weight[j] = 0
 
-        outliers_weight: float = sum(W[is_uncovered])
+        outliers_weight: float = sum(weight)
         attempts += 1
 
-        if outliers_weight < z:
+        if outliers_weight <= z:
             print("Final guess = ", sqrt(r_squared))
             print("Number of guesses = ", attempts)
             return S
@@ -70,22 +70,19 @@ def SeqWeightedOutliers(P: list[tuple], W: list[float], k: int, z: int, alpha: f
 
 def ComputeObjective(inputPoints: list[tuple], solution: list[tuple], z: int) -> float :
     n: int = len(inputPoints)
-    dims: int = len(inputPoints[0])
-    k: int = len(solution[0])
+    k: int = len(solution)
     min_dist_from_centers_squared: list[float] = [0.] * n
-    dist_from_centers_squared: tuple = [0.]*k
+    dist_from_centers_squared: list[float] = [0.]*k
 
     for i in range(n):
         for j in range(k):
-            dist_from_centers_squared[i] = tuple(map(lambda pt, center: (pt-center)*(pt-center), inputPoints[i], solution[j]))
-            min_dist_from_centers_squared[i] = dist_from_centers_squared[0]
-            for dist in dist_from_centers_squared:
-                if min_dist_from_centers_squared[i] < dist:
-                    min_dist_from_centers_squared[i] = dist
+            dist_from_centers_squared[j] = sum(tuple(map(lambda pt, center: (pt-center)*(pt-center), inputPoints[i], solution[j])))
+            min_dist_from_centers_squared[i] = min(dist_from_centers_squared)
 
-    min_dist_from_centers_squared.sort()
+    for i in range(z):
+        min_dist_from_centers_squared.remove(max(min_dist_from_centers_squared))
 
-    return sqrt(min_dist_from_centers_squared[len(min_dist_from_centers_squared)-1-z-1])
+    return sqrt(max(min_dist_from_centers_squared))
     
 
 def main():
@@ -130,7 +127,7 @@ def main():
     #print result
     print("Objective function = ", obj)
     print("Time of SeqWeightedOutliers = ", millis_duration)
-
+    print(solution)
 
 if __name__ == "__main__":
     main()
