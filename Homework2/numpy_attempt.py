@@ -2,9 +2,11 @@ import sys
 import os
 import time
 import numpy as np
+#from matplotlib import pyplot as plt
 
 
-def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.float64) -> np.ndarray:
+
+def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.float64) -> tuple[np.ndarray, np.float64]:
 
     n, dims = P.shape[0], P.shape[1]
     attempts: int = 0
@@ -33,11 +35,15 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
             best_pt_id: int = -1
 
             for current_pt in range(n):
-                if iter_weights[current_pt] > 0:    # assumes each point has starting weight > 0
+                current_weight = np.sum(a=iter_weights, dtype=np.float64, where=all_dist_squared[current_pt] < ball_radius_squared)
+                if current_weight > best_weight:
+                    best_weight = current_weight
+                    best_pt_id = current_pt
+                '''if iter_weights[current_pt] > 0:    # assumes each point has starting weight > 0
                     current_weight = np.sum(a=iter_weights, dtype=np.float64, where=all_dist_squared[current_pt] < ball_radius_squared)
                     if current_weight > best_weight:
                         best_weight = current_weight
-                        best_pt_id = current_pt
+                        best_pt_id = current_pt'''
 
             # *** SPECIAL CASE -> must ask the professor: if the ball radius increase "too much" between and iteration and the other
             # it might happen that all points get inside a number of clusters which is less than k, therefore there will be some cluster
@@ -59,7 +65,7 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
         if outliers_w <= z:
             print("Final guess = ", np.sqrt(r_squared))
             print("Number of guesses = ", attempts)
-            return S
+            return S, np.sqrt(r_squared)
         else:
             r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
 
@@ -123,7 +129,7 @@ def main():
 
     # do k-center with weight and outliers
     millis_start: float = time.time() * 1000.
-    solution = SeqWeightedOutliers(P=data, W=weights, k=k, z=z, alpha=alpha)
+    solution, radius = SeqWeightedOutliers(P=data, W=weights, k=k, z=z, alpha=alpha)
     millis_end: float = time.time() * 1000.
 
     # calculate time needed in milliseconds
@@ -136,6 +142,18 @@ def main():
     print("Objective function = ", obj)
     print("Time of SeqWeightedOutliers = ", millis_duration)
 
+    '''
+    circles = []
+    for i in range(solution.shape[0]):
+        circles.append(plt.Circle(solution[i], 3.*radius, color = 'r', fill= False))
+    ax = plt.gca()
+    ax.cla()
+    ax.scatter(x=data[:,0], y=data[:,1], marker='.') # plot datapoints
+    ax.scatter(x=solution[:,0], y=solution[:,1], marker='o') # plot centers
+    for i in range(solution.shape[0]):
+        ax.add_patch(circles[i])
+    plt.show()
+    '''
 
 if __name__ == "__main__":
     main()
