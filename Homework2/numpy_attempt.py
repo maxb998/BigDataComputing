@@ -6,7 +6,7 @@ import numpy as np
 
 
 
-def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.float64) -> tuple[np.ndarray, np.float64]:
+def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.float64) -> np.ndarray:
 
     n, dims = P.shape[0], P.shape[1]
     attempts: int = 0
@@ -35,15 +35,15 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
             best_pt_id: int = -1
 
             for current_pt in range(n):
-                current_weight = np.sum(a=iter_weights, dtype=np.float64, where=all_dist_squared[current_pt] < ball_radius_squared)
+                '''current_weight = np.sum(a=iter_weights, dtype=np.float64, where=all_dist_squared[current_pt] < ball_radius_squared)
                 if current_weight > best_weight:
                     best_weight = current_weight
-                    best_pt_id = current_pt
-                '''if iter_weights[current_pt] > 0:    # assumes each point has starting weight > 0
+                    best_pt_id = current_pt'''
+                if iter_weights[current_pt] > 0:    # since every covered point gets its weight value inside of iter_weight changed to 0 we can assume a new center won't be one of such values
                     current_weight = np.sum(a=iter_weights, dtype=np.float64, where=all_dist_squared[current_pt] < ball_radius_squared)
                     if current_weight > best_weight:
                         best_weight = current_weight
-                        best_pt_id = current_pt'''
+                        best_pt_id = current_pt
 
             # *** SPECIAL CASE -> must ask the professor: if the ball radius increase "too much" between and iteration and the other
             # it might happen that all points get inside a number of clusters which is less than k, therefore there will be some cluster
@@ -54,6 +54,7 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
             # It must also be noted that this type of solution may potentially increase the number of attempts of the algorithm to get the correct solution
             if best_pt_id == -1:    
                 print("Could not find ", k, "centers. Only ", i, "found")
+                S: np.ndarray = S[:i]
                 break
             S[i] = P[best_pt_id]    # add new center
             ball_radius_squared: np.float64 = (3.+4.*alpha)*(3.+4.*alpha)*r_squared #used when removing new covered points
@@ -65,7 +66,7 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
         if outliers_w <= z:
             print("Final guess = ", np.sqrt(r_squared))
             print("Number of guesses = ", attempts)
-            return S, np.sqrt(r_squared)
+            return S
         else:
             r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
 
@@ -129,7 +130,7 @@ def main():
 
     # do k-center with weight and outliers
     millis_start: float = time.time() * 1000.
-    solution, radius = SeqWeightedOutliers(P=data, W=weights, k=k, z=z, alpha=alpha)
+    solution = SeqWeightedOutliers(P=data, W=weights, k=k, z=z, alpha=alpha)
     millis_end: float = time.time() * 1000.
 
     # calculate time needed in milliseconds
@@ -143,9 +144,11 @@ def main():
     print("Time of SeqWeightedOutliers = ", millis_duration)
 
     '''
+    #print(solution)
+
     circles = []
     for i in range(solution.shape[0]):
-        circles.append(plt.Circle(solution[i], 3.*radius, color = 'r', fill= False))
+        circles.append(plt.Circle(solution[i], obj, color = 'r', fill= False))
     ax = plt.gca()
     ax.cla()
     ax.scatter(x=data[:,0], y=data[:,1], marker='.') # plot datapoints
