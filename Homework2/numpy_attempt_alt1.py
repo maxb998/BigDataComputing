@@ -2,11 +2,11 @@ import sys
 import os
 import time
 import numpy as np
-#from matplotlib import pyplot as plt
+from matplotlib import pyplot as plt
 
 
 
-def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.float64) -> np.ndarray:
+def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: float) -> np.ndarray:
 
     n, dims = P.shape[0], P.shape[1]
     attempts: int = 0
@@ -21,42 +21,42 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
     guess_samples: int = k + z + 1
     r_map_matr: np.ndarray = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
     r_map_matr[:guess_samples, :guess_samples] = all_dist_squared[:guess_samples, :guess_samples]
-    r_squared: np.float64 = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+    r_squared: float = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
     
     print("Initial guess = ", np.sqrt(r_squared))
 
     while True:
         S: np.ndarray = np.zeros(shape=(k, dims), dtype=P.dtype)
-        iter_weights: np.ndarray = np.copy(a=W) # every time it covers new points the weight of such points get set to 0 so that they will be ignored in the next iteration
+        is_uncovered: np.ndarray = np.ones(shape=n, dtype=np.bool8)
+        print(attempts)
 
-        for i in range(k):
-            best_weight: np.float64 = 0.
+        for i in range(k):  # center selection loop
+            best_weight: float = 0.
             best_pt_id: int = -1
-            ball_radius_squared: np.float64 = np.square(1.+2.*alpha)*r_squared # used when selecting the center
+            ball_radius_squared: float = np.square(1.+2.*alpha)*r_squared # used when selecting the center
 
-            for current_pt in range(n):
-                if iter_weights[current_pt] > 0:    # since every covered point gets its weight value inside of iter_weight changed to 0 we can assume a new center won't be one of such values
-                    current_weight = np.sum(a=iter_weights, dtype=np.float64, where=all_dist_squared[current_pt] < ball_radius_squared)
+            for pt_id in range(n):
+                if is_uncovered[pt_id]:
+                    current_weight: float = np.sum(a=W, dtype=float, where=((all_dist_squared[pt_id] < ball_radius_squared) & is_uncovered))
                     if current_weight > best_weight:
                         best_weight = current_weight
-                        best_pt_id = current_pt
+                        best_pt_id = pt_id
 
-            # *** SPECIAL CASE -> must ask the professor: if the ball radius increase "too much" between and iteration and the other
-            # it might happen that all points get inside a number of clusters which is less than k, therefore there will be some cluster
-            # left with no points, completely empty, non-existent. This if condition and its content just give a warning about the fact
-            # that the special case occurred and prevents the algorithm from giving "fake" clusters.
-            # A proper solution to this would probably be to enter an algorithm to adjust the radius of the ball in order to get a better one
-            # something like a binary search between the previous radius and the current one.
-            # It must also be noted that this type of solution may potentially increase the number of attempts of the algorithm to get the correct solution
-            if best_pt_id == -1:    
+            if best_pt_id == -1:    # check if there are any more points available as centers, if not, reshape S and exit the center selection loop
                 print("Could not find ", k, "centers. Only ", i, "found")
                 S: np.ndarray = S[:i]
                 break
+            
             S[i] = P[best_pt_id]    # add new center
-            ball_radius_squared: np.float64 = np.square(3.+4.*alpha)*r_squared #used when removing new covered points
-            iter_weights[all_dist_squared[best_pt_id] < ball_radius_squared] = 0.
+            #if i > 0:
+                #print("center =", S[i], "  weight =", best_weight, "  re-calc-w =", np.sum(a=W, where=((all_dist_squared[best_pt_id] < ball_radius_squared) & is_uncovered)))
+            print("center =", S[i], "  weight =", best_weight, "  pts uncovered =", np.count_nonzero(a=is_uncovered))
+            ball_radius_squared: float = (3.+4.*alpha)*(3.+4.*alpha)*r_squared #used when removing new covered points
 
-        outliers_w = np.sum(a=iter_weights) # sum all weights of the points that are still uncovered
+            is_uncovered[all_dist_squared[best_pt_id] < ball_radius_squared] = False
+            
+
+        outliers_w = np.sum(a=W[is_uncovered]) # sum all weights of the points that are still uncovered
         attempts += 1
 
         if outliers_w <= z:
@@ -67,7 +67,7 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: np.
             r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
 
 
-def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, z: int) -> np.float64 :
+def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, z: int) -> float :
     n, k = inputPoints.shape[0], solution.shape[0]
 
     # compute distances for each point, between the point itself and all the centers, result is a matrix n*k
@@ -77,12 +77,6 @@ def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, z: int) -> n
     
     min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
-    #print(solution)
-    #print(dist_from_centers)
-    #sorted_dist: np.ndarray = np.sqrt(np.sort(min_dist_from_centers))
-    #print(sorted_dist[(n-3-z):(n-z)])
-    #print(np.unique(min_dist_from_centers))
-
     # removing outliers
     for i in range(z):
         min_dist_from_centers[np.argmax(a=min_dist_from_centers)] = 0.
@@ -91,7 +85,7 @@ def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, z: int) -> n
 
 
 def main():
-    # np.set_printoptions(precision=2, linewidth=300)
+    np.set_printoptions(precision=4, linewidth=300)
     # Check argv lenght and content
     assert len(sys.argv) == 4, "Usage: <Filename> <K> <Z>"
 
@@ -99,7 +93,7 @@ def main():
     assert os.path.isfile(filename), "File or folder not found"
     try:
         f = open(filename)
-        data: np.ndarray = np.loadtxt(fname=filename, dtype=np.float64, delimiter=',')
+        data: np.ndarray = np.loadtxt(fname=filename, dtype=float, delimiter=',')
     finally:
         f.close()
     
@@ -117,7 +111,7 @@ def main():
     weights: np.ndarray = np.ones(shape=data.shape[0], dtype=np.int64)
 
     # alpha
-    alpha: np.float64 = 0.
+    alpha: float = 0.
 
     # print input data informations
     print("Input size n = ", data.shape[0])
@@ -133,15 +127,15 @@ def main():
     millis_duration: float = millis_end - millis_start
 
     # Compute objective
-    obj: np.float64 = ComputeObjective(inputPoints=data, solution=solution, z=z)
+    obj: float = ComputeObjective(inputPoints=data, solution=solution, z=z)
 
     # print output
     print("Objective function = ", obj)
     print("Time of SeqWeightedOutliers = ", millis_duration)
 
-    '''
+    
     #print(solution)
-
+    '''
     circles = []
     for i in range(solution.shape[0]):
         circles.append(plt.Circle(solution[i], obj, color = 'r', fill= False))
