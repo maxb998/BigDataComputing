@@ -11,8 +11,8 @@ def readVectorsSeq(filename):
     
     
 def euclidean(point1,point2):
-    res = np.linalg.norm(point1-point2, axis=1)
-    return res
+    dist = np.sum(np.square(point1 - point2),axis=1)
+    return np.sqrt(dist)
 
 def Bz(x,r,Z):
     #result = []
@@ -82,7 +82,7 @@ def ComputeObjective(P,S,z):
 def main():
     
     # Check argv lenght and content
-    assert len(sys.argv) == 4, "Usage: python prova.py testdataHW2.txt 3 3"
+    assert len(sys.argv) == 4, "Usage: G001HW2.py <Filename> <k> <z>"
     
     filename = sys.argv[1]
     assert os.path.isfile(filename), "File or folder not found"
