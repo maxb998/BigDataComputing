@@ -15,12 +15,8 @@ def euclidean(point1,point2):
     return np.sqrt(dist)
 
 def Bz(x,r,Z):
-    #result = []
     X = np.array(x)
-    idx = np.where(euclidean(X,Z) <= r)
-    #ball_points = Y[idx]
-    #result = list(map(tuple, ball_points))
-    
+    idx = np.where(euclidean(X,Z) <= r)   
     return idx
 
 def SeqWeightedOutliers(P,W,k,z,alpha):
@@ -88,7 +84,7 @@ def main():
     assert os.path.isfile(filename), "File or folder not found"
     # Read the points in the input file into a list of tuple
     inputPoints = readVectorsSeq(filename)
-    a = np.array(inputPoints)
+
     # Create a list of ones 'weights' of the same cardinality of inputPoints
     n = len(inputPoints)
     weights = [1]*n
