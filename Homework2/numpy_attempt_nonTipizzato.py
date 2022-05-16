@@ -2,13 +2,14 @@ import sys
 import os
 import time
 import numpy as np
+from typing import List, Tuple
 
 def readVectorsSeq(filename: str):
     with open(filename) as f:
         result: list[tuple] = [tuple(map(float, i.split(','))) for i in f]
     return result
 
-def SeqWeightedOutliers(P: list[tuple], W: list[int], k: int, z: int, alpha: float) -> list[tuple]:
+def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: float) -> List[Tuple]:
 
     # convert list of tuples into ndarrays
     P_np = np.array(P, dtype=float)
@@ -66,7 +67,7 @@ def SeqWeightedOutliers(P: list[tuple], W: list[int], k: int, z: int, alpha: flo
             r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
 
 
-def ComputeObjective(inputPoints: list[tuple], solution: list[tuple], z: int) -> float :
+def ComputeObjective(inputPoints: List[Tuple], solution: List[Tuple], z: int) -> float :
 
     # convert list of tuples into ndarrays
     sol = np.array(object=solution, dtype=float)
