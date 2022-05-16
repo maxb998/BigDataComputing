@@ -4,32 +4,32 @@ import time
 import numpy as np
 
 
-def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: float) -> np.ndarray:
+def SeqWeightedOutliers(P, W, k, z, alpha):
 
     n, dims = P.shape[0], P.shape[1]
-    attempts: int = 0
+    attempts = 0
 
     # calculate array containing the distance between all points squared
     # (because when we need to compare the data it's possible to save little time by not doing the square root)
-    all_dist_squared: np.ndarray = np.zeros(shape=(n,n), dtype=P.dtype)
+    all_dist_squared = np.zeros(shape=(n,n), dtype=P.dtype)
     for i in range(n):
         all_dist_squared[i] = np.sum(a=np.square(P - P[i]), axis=1, dtype=P.dtype)
 
     # compute and print first guess
-    guess_samples: int = k + z + 1
-    r_map_matr: np.ndarray = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
+    guess_samples = k + z + 1
+    r_map_matr = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
     r_map_matr[:guess_samples, :guess_samples] = all_dist_squared[:guess_samples, :guess_samples]
-    r_squared: float = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+    r_squared = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
     print("Initial guess = ", np.sqrt(r_squared))
 
     while True:
-        S: np.ndarray = np.zeros(shape=(k, dims), dtype=P.dtype)
-        iter_weights: np.ndarray = np.copy(a=W) # every time it covers new points the weight of such points get set to 0 so that they will be ignored in the next iteration
+        S = np.zeros(shape=(k, dims), dtype=P.dtype)
+        iter_weights = np.copy(a=W) # every time it covers new points the weight of such points get set to 0 so that they will be ignored in the next iteration
 
         for i in range(k):
-            best_weight: float = 0.
-            best_pt_id: int = -1
-            ball_radius_squared: float = np.square(1.+2.*alpha)*r_squared # used when selecting the center
+            best_weight = 0.
+            best_pt_id = -1
+            ball_radius_squared = np.square(1.+2.*alpha)*r_squared # used when selecting the center
 
             for current_pt in range(n):
                 if iter_weights[current_pt] > 0:    # since every covered point gets its weight value inside of iter_weight changed to 0 we can assume a new center won't be one of such values(better performance)
@@ -48,10 +48,10 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: flo
             # It also must be noted that probably this is the way the pseudocode works
             if best_pt_id == -1:    
                 #print("Could not find ", k, "centers. Only ", i, "found")
-                S: np.ndarray = S[:i]   # generate new ndarray which size matches the number of centers found
+                S = S[:i]   # generate new ndarray which size matches the number of centers found
                 break
             S[i] = P[best_pt_id]    # add new center
-            ball_radius_squared: float = np.square(3.+4.*alpha)*r_squared # used when removing new covered points
+            ball_radius_squared = np.square(3.+4.*alpha)*r_squared # used when removing new covered points
             iter_weights[all_dist_squared[best_pt_id] < ball_radius_squared] = 0.
 
         outliers_w = np.sum(a=iter_weights) # sum all weights of the points that are still uncovered
@@ -65,15 +65,15 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: flo
             r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
 
 
-def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, z: int) -> float :
+def ComputeObjective(inputPoints, solution, z) -> float :
     n, k = inputPoints.shape[0], solution.shape[0]
 
     # compute distances for each point, between the point itself and all the centers, result is a matrix n*k
-    dist_from_centers: np.ndarray = np.zeros(shape=(n,k), dtype=inputPoints.dtype)
+    dist_from_centers = np.zeros(shape=(n,k), dtype=inputPoints.dtype)
     for i in range(n):
         dist_from_centers[i] = np.sum(a=np.square(np.subtract(solution, inputPoints[i])), axis=1, dtype=inputPoints.dtype)
     
-    min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
+    min_dist_from_centers = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
     # removing outliers
     for i in range(z):
@@ -92,7 +92,7 @@ def main():
     assert os.path.isfile(filename), "File or folder not found"
     try:
         f = open(filename)
-        inputPoints: np.ndarray = np.loadtxt(fname=filename, dtype=float, delimiter=',')
+        inputPoints = np.loadtxt(fname=filename, dtype=float, delimiter=',')
     finally:
         f.close()
     
@@ -107,10 +107,10 @@ def main():
     assert z >= 0, "K must be positive"
 
     # init unit weights
-    weights: np.ndarray = np.ones(shape=inputPoints.shape[0], dtype=int)
+    weights = np.ones(shape=inputPoints.shape[0], dtype=int)
 
     # alpha
-    alpha: float = 0.
+    alpha = 0.
 
     # print input data informations
     print("Input size n = ", inputPoints.shape[0])
@@ -118,15 +118,15 @@ def main():
     print("Number of outliers z = ", z)
 
     # do k-center with weight and outliers
-    millis_start: float = time.time() * 1000.
+    millis_start = time.time() * 1000.
     solution = SeqWeightedOutliers(P=inputPoints, W=weights, k=k, z=z, alpha=alpha)
-    millis_end: float = time.time() * 1000.
+    millis_end = time.time() * 1000.
 
     # calculate time needed in milliseconds
-    millis_duration: float = millis_end - millis_start
+    millis_duration = millis_end - millis_start
 
     # Compute objective
-    objective: float = ComputeObjective(inputPoints=inputPoints, solution=solution, z=z)
+    objective = ComputeObjective(inputPoints=inputPoints, solution=solution, z=z)
 
     # print output
     print("Objective function = ", objective)
