@@ -3,17 +3,23 @@ import os
 import time
 import numpy as np
 
+def readVectorsSeq(filename: str):
+    with open(filename) as f:
+        result: list[tuple] = [tuple(map(float, i.split(','))) for i in f]
+    return result
 
-def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: float) -> np.ndarray:
+def SeqWeightedOutliers(P: list[tuple], W: list[int], k: int, z: int, alpha: float) -> list[tuple]:
 
-    n, dims = P.shape[0], P.shape[1]
+    Points: np.ndarray = np.array(P, dtype=float)
+    W: np.ndarray = np.array(W, dtype=int)
+    n, dims = Points.shape[0], Points.shape[1]
     attempts: int = 0
 
     # calculate array containing the distance between all points squared
     # (because when we need to compare the data it's possible to save little time by not doing the square root)
-    all_dist_squared: np.ndarray = np.zeros(shape=(n,n), dtype=P.dtype)
+    all_dist_squared: np.ndarray = np.zeros(shape=(n,n), dtype=Points.dtype)
     for i in range(n):
-        all_dist_squared[i] = np.sum(a=np.square(P - P[i]), axis=1, dtype=P.dtype)
+        all_dist_squared[i] = np.sum(a=np.square(Points - Points[i]), axis=1, dtype=Points.dtype)
 
     # compute and print first guess
     guess_samples: int = k + z + 1
@@ -23,7 +29,7 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: flo
     print("Initial guess = ", np.sqrt(r_squared))
 
     while True:
-        S: np.ndarray = np.zeros(shape=(k, dims), dtype=P.dtype)
+        S: np.ndarray = np.zeros(shape=(k, dims), dtype=Points.dtype)
         iter_weights: np.ndarray = np.copy(a=W) # every time it covers new points the weight of such points get set to 0 so that they will be ignored in the next iteration
 
         for i in range(k):
@@ -38,16 +44,7 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: flo
                         best_weight = current_weight
                         best_pt_id = current_pt
 
-            # *** SPECIAL CASE -> must ask the professor: if the ball radius increase "too much" between and iteration and the other
-            # it might happen that all points get inside a number of clusters which is less than k, therefore there will be some cluster
-            # left with no points, completely empty, non-existent. This if condition and its content just give a warning about the fact
-            # that the special case occurred and prevents the algorithm from giving "fake" clusters.
-            # A proper solution to this would probably be to enter an algorithm to adjust the radius of the ball in order to get a better one
-            # something like a binary search between the previous radius and the current one.
-            # It must also be noted that this type of solution may potentially increase the number of attempts of the algorithm to get the correct solution
-            # It also must be noted that probably this is the way the pseudocode works
-            if best_pt_id == -1:    
-                #print("Could not find ", k, "centers. Only ", i, "found")
+            if best_pt_id == -1:    # this case is the one where the best_pt_id did not change at all during the run of the algorithm, which means that all the points have already been covered
                 S: np.ndarray = S[:i]   # generate new ndarray which size matches the number of centers found
                 break
             S[i] = P[best_pt_id]    # add new center
@@ -60,18 +57,21 @@ def SeqWeightedOutliers(P: np.ndarray, W: np.ndarray, k: int, z: int, alpha: flo
         if outliers_w <= z:
             print("Final guess = ", np.sqrt(r_squared))
             print("Number of guesses = ", attempts)
+            # convert S to list of tuples before returning it
+            S: list[tuple] = list(map(tuple, S))
             return S
         else:
             r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
 
 
-def ComputeObjective(inputPoints: np.ndarray, solution: np.ndarray, z: int) -> float :
-    n, k = inputPoints.shape[0], solution.shape[0]
+def ComputeObjective(inputPoints: np.ndarray, solution: list[tuple], z: int) -> float :
+    n, k = len(inputPoints), len(solution)
+    sol: np.ndarray = np.array(object=solution, dtype=float)
 
     # compute distances for each point, between the point itself and all the centers, result is a matrix n*k
-    dist_from_centers: np.ndarray = np.zeros(shape=(n,k), dtype=inputPoints.dtype)
+    dist_from_centers: np.ndarray = np.zeros(shape=(n,k), dtype=float)
     for i in range(n):
-        dist_from_centers[i] = np.sum(a=np.square(np.subtract(solution, inputPoints[i])), axis=1, dtype=inputPoints.dtype)
+        dist_from_centers[i] = np.sum(a=np.square(np.subtract(sol, inputPoints[i])), axis=1, dtype=float)
     
     min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
@@ -90,12 +90,15 @@ def main():
 
     filename = sys.argv[1]
     assert os.path.isfile(filename), "File or folder not found"
+    '''
     try:
         f = open(filename)
         inputPoints: np.ndarray = np.loadtxt(fname=filename, dtype=float, delimiter=',')
     finally:
         f.close()
-    
+    '''
+    inputPoints: list[tuple] = readVectorsSeq(filename=filename)
+
     k = sys.argv[2]
     assert k.isdigit(), "K must be an integer value"
     k = int(k)
@@ -107,13 +110,15 @@ def main():
     assert z >= 0, "K must be positive"
 
     # init unit weights
-    weights: np.ndarray = np.ones(shape=inputPoints.shape[0], dtype=int)
+    #weights: np.ndarray = np.ones(shape=inputPoints.shape[0], dtype=int)
+    weights: list[float] = [1] * len(inputPoints)
 
     # alpha
     alpha: float = 0.
 
     # print input data informations
-    print("Input size n = ", inputPoints.shape[0])
+    #print("Input size n = ", inputPoints.shape[0])
+    print("Input size n = ", len(inputPoints))
     print("Number of centers k = ", k)
     print("Number of outliers z = ", z)
 
