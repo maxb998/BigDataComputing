@@ -10,16 +10,18 @@ def readVectorsSeq(filename: str):
 
 def SeqWeightedOutliers(P: list[tuple], W: list[int], k: int, z: int, alpha: float) -> list[tuple]:
 
-    Points: np.ndarray = np.array(P, dtype=float)
+    # convert list of tuples into ndarrays
+    P_np: np.ndarray = np.array(P, dtype=float)
     W: np.ndarray = np.array(W, dtype=int)
-    n, dims = Points.shape[0], Points.shape[1]
+
+    n, dims = P_np.shape[0], P_np.shape[1]  # used to make the core more readable
     attempts: int = 0
 
     # calculate array containing the distance between all points squared
     # (because when we need to compare the data it's possible to save little time by not doing the square root)
-    all_dist_squared: np.ndarray = np.zeros(shape=(n,n), dtype=Points.dtype)
+    all_dist_squared: np.ndarray = np.zeros(shape=(n,n), dtype=P_np.dtype)
     for i in range(n):
-        all_dist_squared[i] = np.sum(a=np.square(Points - Points[i]), axis=1, dtype=Points.dtype)
+        all_dist_squared[i] = np.sum(a=np.square(P_np - P_np[i]), axis=1, dtype=P_np.dtype)
 
     # compute and print first guess
     guess_samples: int = k + z + 1
@@ -29,7 +31,7 @@ def SeqWeightedOutliers(P: list[tuple], W: list[int], k: int, z: int, alpha: flo
     print("Initial guess = ", np.sqrt(r_squared))
 
     while True:
-        S: np.ndarray = np.zeros(shape=(k, dims), dtype=Points.dtype)
+        S: np.ndarray = np.zeros(shape=(k, dims), dtype=P_np.dtype)
         iter_weights: np.ndarray = np.copy(a=W) # every time it covers new points the weight of such points get set to 0 so that they will be ignored in the next iteration
 
         for i in range(k):
@@ -64,14 +66,18 @@ def SeqWeightedOutliers(P: list[tuple], W: list[int], k: int, z: int, alpha: flo
             r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
 
 
-def ComputeObjective(inputPoints: np.ndarray, solution: list[tuple], z: int) -> float :
-    n, k = len(inputPoints), len(solution)
+def ComputeObjective(inputPoints: list[tuple], solution: list[tuple], z: int) -> float :
+
+    # convert list of tuples into ndarrays
     sol: np.ndarray = np.array(object=solution, dtype=float)
+    inputPoints_np: np.ndarray = np.array(object=inputPoints, dtype=float)
+
+    n, k = len(inputPoints), len(solution)
 
     # compute distances for each point, between the point itself and all the centers, result is a matrix n*k
     dist_from_centers: np.ndarray = np.zeros(shape=(n,k), dtype=float)
     for i in range(n):
-        dist_from_centers[i] = np.sum(a=np.square(np.subtract(sol, inputPoints[i])), axis=1, dtype=float)
+        dist_from_centers[i] = np.sum(a=np.square(np.subtract(sol, inputPoints_np[i])), axis=1, dtype=float)
     
     min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
@@ -84,19 +90,12 @@ def ComputeObjective(inputPoints: np.ndarray, solution: list[tuple], z: int) -> 
 
 
 def main():
-    # np.set_printoptions(precision=2, linewidth=300)   # useful when printing ndarrays during debugging
+
     # Check argv lenght and content
     assert len(sys.argv) == 4, "Usage: <Filename> <K> <Z>"
 
     filename = sys.argv[1]
     assert os.path.isfile(filename), "File or folder not found"
-    '''
-    try:
-        f = open(filename)
-        inputPoints: np.ndarray = np.loadtxt(fname=filename, dtype=float, delimiter=',')
-    finally:
-        f.close()
-    '''
     inputPoints: list[tuple] = readVectorsSeq(filename=filename)
 
     k = sys.argv[2]
@@ -110,14 +109,12 @@ def main():
     assert z >= 0, "K must be positive"
 
     # init unit weights
-    #weights: np.ndarray = np.ones(shape=inputPoints.shape[0], dtype=int)
     weights: list[float] = [1] * len(inputPoints)
 
     # alpha
     alpha: float = 0.
 
     # print input data informations
-    #print("Input size n = ", inputPoints.shape[0])
     print("Input size n = ", len(inputPoints))
     print("Number of centers k = ", k)
     print("Number of outliers z = ", z)
