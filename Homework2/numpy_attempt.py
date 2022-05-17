@@ -110,7 +110,7 @@ def main():
     assert z >= 0, "K must be positive"
 
     # init unit weights
-    weights: list[float] = [1] * len(inputPoints)
+    weights: list[int] = [1] * len(inputPoints)
 
     # alpha
     alpha: float = 0.
