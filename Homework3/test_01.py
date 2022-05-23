@@ -200,7 +200,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
     # (because when we need to compare the data it's possible to save little time by not doing the square root)
     all_dist_squared: np.ndarray = np.zeros(shape=(n,n), dtype=P_np.dtype)
     for i in range(n):
-        all_dist_squared[i] = np.sum(a=np.square(P_np - P_np[i]), axis=1, dtype=P_np.dtype)
+        np.sum(a=np.square(P_np - P_np[i]), out=all_dist_squared[i], axis=1, dtype=P_np.dtype)
 
     # compute and print first guess
     guess_samples: int = k + z + 1
