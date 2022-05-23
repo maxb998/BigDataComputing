@@ -102,7 +102,7 @@ def MR_kCenterOutliers(points, k, z, L):
     
     #------------- ROUND 1 ---------------------------
 
-    coreset = points.mapPartitions(extractCoreset)
+    coreset = points.mapPartitions(lambda iterator: extractCoreset(iterator, k+z+1))
     
     # END OF ROUND 1
 
@@ -126,9 +126,9 @@ def MR_kCenterOutliers(points, k, z, L):
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method extractCoreset: extract a coreset from a given iterator
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def extractCoreset(iter):
+def extractCoreset(iter, points):
     partition = list(iter)
-    centers = kCenterFFT(partition, k+z+1)
+    centers = kCenterFFT(partition, points)
     weights = computeWeights(partition, centers)
     c_w = list()
     for i in range(0, len(centers)):
