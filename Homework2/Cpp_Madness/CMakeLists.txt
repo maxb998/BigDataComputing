@@ -4,6 +4,8 @@ project(kcenterscpp VERSION 0.1.0)
 include(CTest)
 enable_testing()
 
+add_definitions( "-mavx2" )
+
 add_executable(kcenterscpp kcenterscpp.cpp)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})

@@ -1,7 +1,7 @@
 {
     "cmake.debugConfig": {
         "args": [
-            "../../artificial9000.txt",
+            "../../testdataHW2.txt",
             "3",
             "3"
         ]
