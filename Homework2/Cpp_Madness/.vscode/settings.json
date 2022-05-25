@@ -1,0 +1,12 @@
+{
+    "cmake.debugConfig": {
+        "args": [
+            "../../artificial9000.txt",
+            "3",
+            "3"
+        ]
+    },
+    "files.associations": {
+        "iostream": "cpp"
+    }
+}
