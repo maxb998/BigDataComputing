@@ -4,8 +4,9 @@ import numpy as np
 import time
 import random
 import sys
-import math
-from typing import List, Tuple
+from typing import List, Tuple, Iterable
+
+from pyspark import RDD # needed fot typing purpuses
 
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -14,15 +15,13 @@ from typing import List, Tuple
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def main():
     # Checking number of cmd line parameters
-    assert len(sys.argv) == 5, "Usage: python TemplateHW3.py testdataHW3.txt k z L"
+    assert len(sys.argv) == 5, "Usage: python Homework3.py filepath k z L"
 
     # Initialize variables
     filename = sys.argv[1]
     k = int(sys.argv[2])
     z = int(sys.argv[3])
     L = int(sys.argv[4])
-    start = 0
-    end = 0
 
     # Set Spark Configuration
     conf = SparkConf().setAppName('MR k-center with outliers')
@@ -32,6 +31,8 @@ def main():
     # Read points from file
     start = time.time()
     inputPoints = sc.textFile(filename, L).map(lambda x : strToVector(x)).repartition(L).cache()
+    #inputPoints = sc.textFile(filename).map(lambda x : strToVector(x)).repartition(L).cache()
+    #inputPoints = sc.textFile(filename, L).map(lambda x : strToVector(x), preservesPartitioning=True).cache()  # alternative version which seems to do the same thing
     N = inputPoints.count()
     end = time.time()
 
@@ -41,7 +42,7 @@ def main():
     print("Number of centers k = ", k)
     print("Number of outliers z = ", z)
     print("Number of partitions L = ", L)
-    print("Time to read from file: ", str((end-start)*1000), " ms")
+    print("Time to read from file: ", str((end-start)*1000.), " ms")
 
     # Solve the problem
     solution = MR_kCenterOutliers(inputPoints, k, z, L)
@@ -51,7 +52,7 @@ def main():
     objective = computeObjective(inputPoints, solution, z)
     end = time.time()
     print("Objective function = ", objective)
-    print("Time to compute objective function: ", str((end-start)*1000), " ms")
+    print("Time to compute objective function: ", str((end-start)*1000.), " ms")
      
 
 
@@ -65,40 +66,15 @@ def main():
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method strToVector: input reading
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def strToVector(str):
+def strToVector(str: str) -> Tuple[float, ...]:
     out = tuple(map(float, str.split(',')))
     return out
-
-
-
-# &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-# Method squaredEuclidean: squared euclidean distance
-# &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def squaredEuclidean(point1,point2):
-    res = 0
-    for i in range(len(point1)):
-        diff = (point1[i]-point2[i])
-        res +=  diff*diff
-    return res
-
-
-
-# &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-# Method euclidean:  euclidean distance
-# &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def euclidean(point1,point2):
-    res = 0
-    for i in range(len(point1)):
-        diff = (point1[i]-point2[i])
-        res +=  diff*diff
-    return math.sqrt(res)
-
 
 
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method MR_kCenterOutliers: MR algorithm for k-center with outliers
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def MR_kCenterOutliers(points, k, z, L):
+def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float, ...]]:
 
     
     #------------- ROUND 1 ---------------------------
@@ -109,10 +85,13 @@ def MR_kCenterOutliers(points, k, z, L):
 
     
     #------------- ROUND 2 ---------------------------
-    
+    start = time.time()
     elems = coreset.collect()
-    coresetPoints = list()
-    coresetWeights = list()
+    end = time.time()
+    print("Time to extract coreset: ", str((end-start)*1000.), " ms")
+
+    coresetPoints: list[tuple[float, ...]] = []
+    coresetWeights: list[int] = []
     for i in elems:
         coresetPoints.append(i[0])
         coresetWeights.append(i[1])
@@ -121,39 +100,63 @@ def MR_kCenterOutliers(points, k, z, L):
     # ****** Compute the final solution (run SeqWeightedOutliers with alpha=2)
     # ****** Measure and print times taken by Round 1 and Round 2, separately
     # ****** Return the final solution
-    S = SeqWeightedOutliers(coresetPoints, coresetWeights, k, z, 2)     
-    return S     
+    S = SeqWeightedOutliers(coresetPoints, coresetWeights, k, z, 2.)     
+    return S
    
 
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method extractCoreset: extract a coreset from a given iterator
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def extractCoreset(iter, points):
-    partition = list(iter)
+def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int) -> List[Tuple]:   # numpy version
+    temp = list(iter)   # convert to list before and than to ndarray(needed for some reason(compatibility?))
+    partition = np.array(temp)
     centers = kCenterFFT(partition, points)
     weights = computeWeights(partition, centers)
+    
+    
     c_w = list()
-    for i in range(0, len(centers)):
-        entry = (centers[i], weights[i])
+    #for i in range(0, len(centers)):
+    for i in range(centers.shape[0]):
+        #entry = (centers[i], weights[i])
+        entry = (tuple(centers[i]), weights[i])
         c_w.append(entry)
     # return weighted coreset
     return c_w
-    
+
+    '''
+    #ALTERNATIVE VERSION: only works if the "weights" ndarray is an array of floats instead of integers and SHOULD BE FASTER
+    c_w_np = np.column_stack((centers, weights))
+    c_w = list(map(tuple, c_w_np))
+    return c_w
+    '''
+
     
     
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method kCenterFFT: Farthest-First Traversal
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def kCenterFFT(points, k):
-    idx_rnd = random.randint(0, len(points)-1)
-    centers = [points[idx_rnd]]
-    related_center_idx = [idx_rnd for i in range(len(points))]
-    dist_near_center = [squaredEuclidean(points[i], centers[0]) for i in range(len(points))]
+def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
+    n = points.shape[0] # number of points in dataset
+    #random.seed(5000)
+    idx_rnd = random.randint(0, n-1)
+    centers = np.zeros(shape=(k, points.shape[1]), dtype=float)
+
+    #centers = [points[idx_rnd]]
+    centers[0] = points[idx_rnd]
+
+    #related_center_idx = [idx_rnd for i in range(len(points))]
+    #dist_near_center = [squaredEuclidean(points[i], centers[0]) for i in range(len(points))]
+    dist_from_nearest_center = np.sum(a=np.square(points - points[idx_rnd]), axis=1, dtype=float)  #compute square distance between first center and all points (including itself)
 
     for i in range(k-1):
-        new_center_idx = max(enumerate(dist_near_center), key=lambda x: x[1])[0] # argmax operation
-        centers.append(points[new_center_idx])
-        for j in range(len(points)):
+        #new_center_idx = max(enumerate(dist_near_center), key=lambda x: x[1])[0] # argmax operation
+        new_center_idx = np.argmax(a=dist_from_nearest_center)
+
+        #centers.append(points[new_center_idx])
+        centers[i+1] = points[new_center_idx]
+
+        '''
+        for j in range(n):
             if j != new_center_idx:
                 dist = squaredEuclidean(points[j], centers[-1])
                 if dist < dist_near_center[j]:
@@ -162,15 +165,20 @@ def kCenterFFT(points, k):
             else:
                 dist_near_center[j] = 0
                 related_center_idx[j] = new_center_idx
+        '''
+        dist_from_new_center = np.sum(a=np.square(points - centers[i+1]), axis=1, dtype=float)
+        np.minimum(dist_from_nearest_center, dist_from_new_center, out=dist_from_nearest_center)
+
     return centers
-
-
 
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method computeWeights: compute weights of coreset points
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def computeWeights(points, centers):
-    weights = np.zeros(len(centers))
+def computeWeights(points: np.ndarray, centers: np.ndarray) -> np.ndarray:
+    #weights = np.zeros(len(centers))
+    weights = np.zeros(shape=centers.shape[0], dtype=int)
+
+    '''
     for point in points:
         mycenter = 0
         mindist = squaredEuclidean(point,centers[0])
@@ -180,6 +188,12 @@ def computeWeights(points, centers):
                 mindist = dist
                 mycenter = i
         weights[mycenter] = weights[mycenter] + 1
+    '''
+    distances = np.zeros(shape=centers.shape[0], dtype=float)
+    for i in range(points.shape[0]):
+        np.sum(a=np.square(centers - points[i]), out=distances, axis=1, dtype=float)
+        weights[np.argmin(distances)] += 1
+
     return weights
 
 
@@ -190,15 +204,15 @@ def computeWeights(points, centers):
 def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: float) -> List[Tuple]:
 
     # convert list of tuples into ndarrays
-    P_np: np.ndarray = np.array(P, dtype=float)
-    W: np.ndarray = np.array(W, dtype=int)
+    P_np = np.array(P, dtype=float)
+    W = np.array(W, dtype=int)
 
     n, dims = P_np.shape[0], P_np.shape[1]  # used to make the core more readable
     attempts: int = 0
 
     # calculate array containing the distance between all points squared
     # (because when we need to compare the data it's possible to save little time by not doing the square root)
-    all_dist_squared: np.ndarray = np.zeros(shape=(n,n), dtype=P_np.dtype)
+    all_dist_squared = np.zeros(shape=(n,n), dtype=P_np.dtype)
     for i in range(n):
         np.sum(a=np.square(P_np - P_np[i]), out=all_dist_squared[i], axis=1, dtype=P_np.dtype)
 
@@ -249,31 +263,42 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method computeObjective: computes objective function
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def computeObjective(inputPoints: List[Tuple], solution: List[Tuple], z: int) -> float :
-
-    # convert list of tuples into ndarrays
-    sol: np.ndarray = np.array(object=solution, dtype=float)
-    inputPoints_np: np.ndarray = np.array(object=inputPoints, dtype=float)
-
-    n, k = len(inputPoints), len(solution)
-
-    # compute distances for each point, between the point itself and all the centers, result is a matrix n*k
-    dist_from_centers: np.ndarray = np.zeros(shape=(n,k), dtype=float)
-    for i in range(n):
-        dist_from_centers[i] = np.sum(a=np.square(np.subtract(sol, inputPoints_np[i])), axis=1, dtype=float)
+def computeObjective(points: RDD, solution: List[Tuple], z: int) -> float :
     
-    min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
+    intermediateRDD = points.mapPartitions(lambda iterator: find_max_Z_plus_one_points(iter=iterator, toKeep=(z+1), solution=solution))
+
+    elem = intermediateRDD.collect()
+
+    farthest_points = np.array(elem)
 
     # removing outliers
     for i in range(z):
         # setting to zero is faster than remoiving an element from ndarray(because removing and element involves reshaping the whole ndarray)
-        min_dist_from_centers[np.argmax(a=min_dist_from_centers)] = 0.
+        farthest_points[np.argmax(a=farthest_points)] = 0.
     
-    return np.sqrt(np.max(min_dist_from_centers))   # sqrt needed because, like in the rest of the algorithm, all the distances are squared
+    return np.sqrt(np.max(farthest_points))   # sqrt needed because, like in the rest of the algorithm, all the distances are squared
 
 
+def find_max_Z_plus_one_points(iter: Iterable, toKeep: int, solution: List[Tuple[float, ...]]) -> List[float]:
+
+    temp = list(iter)
+    part_pts= np.array(temp)
+    sol = np.array(solution)
+    n, k = part_pts.shape[0], sol.shape[0]
+
+    dist_from_centers = np.zeros(shape=(n,k), dtype= float)
+    for i in range(n):
+        np.sum(np.square(np.subtract(part_pts[i], sol)), out=dist_from_centers[i], axis=1, dtype=float)
+
+    min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
+
+    part_max_dists = min_dist_from_centers[min_dist_from_centers.argsort()[n-toKeep:]]  # stores the biggest toKeep's values from min_dist_from_centers
+
+    return list(part_max_dists)
 
 
 # Just start the main program
 if __name__ == "__main__":
     main()
+
+
