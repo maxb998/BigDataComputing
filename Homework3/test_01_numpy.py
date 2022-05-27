@@ -90,8 +90,8 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float,
     end = time.time()
     time_round_1 = (end -start) * 1000.
 
-    coresetPoints: list[tuple[float, ...]] = []
-    coresetWeights: list[int] = []
+    coresetPoints = []
+    coresetWeights = []
     for i in elems:
         coresetPoints.append(i[0])
         coresetWeights.append(i[1])
@@ -215,7 +215,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
     W = np.array(W, dtype=int)
 
     n, dims = P_np.shape[0], P_np.shape[1]  # used to make the core more readable
-    attempts: int = 0
+    attempts = 0
 
     # calculate array containing the distance between all points squared
     # (because when we need to compare the data it's possible to save little time by not doing the square root)
@@ -224,20 +224,20 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
         np.sum(a=np.square(P_np - P_np[i]), out=all_dist_squared[i], axis=1, dtype=P_np.dtype)
 
     # compute and print first guess
-    guess_samples: int = k + z + 1
-    r_map_matr: np.ndarray = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
+    guess_samples = k + z + 1
+    r_map_matr = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
     r_map_matr[:guess_samples, :guess_samples] = all_dist_squared[:guess_samples, :guess_samples]
-    r_squared: float = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+    r_squared = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
     print("Initial guess =", np.sqrt(r_squared))
 
     while True:
         S: np.ndarray = np.zeros(shape=(k, dims), dtype=P_np.dtype)
-        iter_weights: np.ndarray = np.copy(a=W) # every time it covers new points the weight of such points get set to 0 so that they will be ignored in the next iteration
+        iter_weights = np.copy(a=W) # every time it covers new points the weight of such points get set to 0 so that they will be ignored in the next iteration
 
         for i in range(k):
-            best_weight: float = 0.
-            best_pt_id: int = -1
-            ball_radius_squared: float = np.square(1.+2.*alpha)*r_squared # used when selecting the center
+            best_weight = 0.
+            best_pt_id = -1
+            ball_radius_squared = np.square(1.+2.*alpha)*r_squared # used when selecting the center
 
             for current_pt in range(n):
                 if iter_weights[current_pt] > 0:    # since every covered point gets its weight value inside of iter_weight changed to 0 we can assume a new center won't be one of such values(better performance)
@@ -247,7 +247,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
                         best_pt_id = current_pt
 
             if best_pt_id == -1:    # this case is the one where the best_pt_id did not change at all during the run of the algorithm, which means that all the points have already been covered
-                S: np.ndarray = S[:i]   # generate new ndarray which size matches the number of centers found
+                S = S[:i]   # generate new ndarray which size matches the number of centers found
                 break
             S[i] = P[best_pt_id]    # add new center
             ball_radius_squared: float = np.square(3.+4.*alpha)*r_squared # used when removing new covered points
@@ -289,7 +289,7 @@ def computeObjective(points: RDD, solution: List[Tuple], z: int) -> float :
 def find_max_Z_plus_one_points(iter: Iterable, toKeep: int, solution: List[Tuple[float, ...]]) -> List[float]:
 
     temp = list(iter)
-    part_pts= np.array(temp)
+    part_pts = np.array(temp)
     sol = np.array(solution)
     n, k = part_pts.shape[0], sol.shape[0]
 
@@ -297,7 +297,7 @@ def find_max_Z_plus_one_points(iter: Iterable, toKeep: int, solution: List[Tuple
     for i in range(n):
         np.sum(np.square(np.subtract(part_pts[i], sol)), out=dist_from_centers[i], axis=1, dtype=float)
 
-    min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
+    min_dist_from_centers = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
     part_max_dists = min_dist_from_centers[min_dist_from_centers.argsort()[n-toKeep:]]  # stores the biggest toKeep's values from min_dist_from_centers
 
