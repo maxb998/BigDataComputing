@@ -260,7 +260,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
             print("Final guess =", np.sqrt(r_squared))
             print("Number of guesses =", attempts)
             # convert S to list of tuples before returning it
-            S: list[tuple] = list(map(tuple, S))
+            S = list(map(tuple, S))
             return S
         else:
             r_squared *= 4. # because it is squared so r^2 * 4 = (r*2)^2
