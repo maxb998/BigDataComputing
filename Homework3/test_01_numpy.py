@@ -37,23 +37,23 @@ def main():
     end = time.time()
 
     # Pring input parameters
-    print("File : " + filename)
-    print("Number of points N = ", N)
-    print("Number of centers k = ", k)
-    print("Number of outliers z = ", z)
-    print("Number of partitions L = ", L)
-    print("Time to read from file: ", str((end-start)*1000.), " ms")
+    print("File :" + filename)
+    print("Number of points N =", N)
+    print("Number of centers k =", k)
+    print("Number of outliers z =", z)
+    print("Number of partitions L =", L)
+    print("Time to read from file:", str((end-start)*1000.), "ms")
 
     # Solve the problem
     solution = MR_kCenterOutliers(inputPoints, k, z, L)
-
+    '''
     # Compute the value of the objective function
     start = time.time()
     objective = computeObjective(inputPoints, solution, z)
     end = time.time()
-    print("Objective function = ", objective)
-    print("Time to compute objective function: ", str((end-start)*1000.), " ms")
-     
+    print("Objective function =", objective)
+    print("Time to compute objective function:", str((end-start)*1000.), "ms")
+    '''
 
 
 
@@ -88,7 +88,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float,
     start = time.time()
     elems = coreset.collect()
     end = time.time()
-    print("Time to extract coreset: ", str((end-start)*1000.), " ms")
+    time_round_1 = (end -start) * 1000.
 
     coresetPoints: list[tuple[float, ...]] = []
     coresetWeights: list[int] = []
@@ -100,7 +100,14 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float,
     # ****** Compute the final solution (run SeqWeightedOutliers with alpha=2)
     # ****** Measure and print times taken by Round 1 and Round 2, separately
     # ****** Return the final solution
-    S = SeqWeightedOutliers(coresetPoints, coresetWeights, k, z, 2.)     
+    start = time.time()
+    S = SeqWeightedOutliers(coresetPoints, coresetWeights, k, z, 2.)
+    end = time.time()
+    time_round_2 = (end - start) * 1000.
+
+    print("Time Round 1:", time_round_1, "ms")
+    print("Time Round 2:", time_round_2, "ms")
+
     return S
    
 
@@ -221,7 +228,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
     r_map_matr: np.ndarray = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
     r_map_matr[:guess_samples, :guess_samples] = all_dist_squared[:guess_samples, :guess_samples]
     r_squared: float = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
-    print("Initial guess = ", np.sqrt(r_squared))
+    print("Initial guess =", np.sqrt(r_squared))
 
     while True:
         S: np.ndarray = np.zeros(shape=(k, dims), dtype=P_np.dtype)
@@ -250,8 +257,8 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
         attempts += 1
 
         if outliers_w <= z:
-            print("Final guess = ", np.sqrt(r_squared))
-            print("Number of guesses = ", attempts)
+            print("Final guess =", np.sqrt(r_squared))
+            print("Number of guesses =", attempts)
             # convert S to list of tuples before returning it
             S: list[tuple] = list(map(tuple, S))
             return S

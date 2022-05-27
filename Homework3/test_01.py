@@ -45,13 +45,14 @@ def main():
 
     # Solve the problem
     solution = MR_kCenterOutliers(inputPoints, k, z, L)
+    print(solution)
 
     # Compute the value of the objective function
-    start = time.time()
-    objective = computeObjective(inputPoints, solution, z)
-    end = time.time()
-    print("Objective function = ", objective)
-    print("Time to compute objective function: ", str((end-start)*1000), " ms")
+    #start = time.time()
+    #objective = computeObjective(inputPoints, solution, z)
+    #end = time.time()
+    #print("Objective function = ", objective)
+    #print("Time to compute objective function: ", str((end-start)*1000), " ms")
      
 
 
@@ -110,7 +111,11 @@ def MR_kCenterOutliers(points, k, z, L):
     
     #------------- ROUND 2 ---------------------------
     
+    start = time.time()
     elems = coreset.collect()
+    end = time.time()
+    print("Time to extract coreset: ", str((end-start)*1000.), " ms")
+
     coresetPoints = list()
     coresetWeights = list()
     for i in elems:
@@ -145,6 +150,7 @@ def extractCoreset(iter, points):
 # Method kCenterFFT: Farthest-First Traversal
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def kCenterFFT(points, k):
+    random.seed(5000)
     idx_rnd = random.randint(0, len(points)-1)
     centers = [points[idx_rnd]]
     related_center_idx = [idx_rnd for i in range(len(points))]
