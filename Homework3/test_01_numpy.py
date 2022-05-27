@@ -231,7 +231,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
     print("Initial guess =", np.sqrt(r_squared))
 
     while True:
-        S: np.ndarray = np.zeros(shape=(k, dims), dtype=P_np.dtype)
+        S = np.zeros(shape=(k, dims), dtype=P_np.dtype)
         iter_weights = np.copy(a=W) # every time it covers new points the weight of such points get set to 0 so that they will be ignored in the next iteration
 
         for i in range(k):
