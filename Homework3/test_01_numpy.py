@@ -46,14 +46,14 @@ def main():
 
     # Solve the problem
     solution = MR_kCenterOutliers(inputPoints, k, z, L)
-    '''
+    
     # Compute the value of the objective function
     start = time.time()
     objective = computeObjective(inputPoints, solution, z)
     end = time.time()
     print("Objective function =", objective)
     print("Time to compute objective function:", str((end-start)*1000.), "ms")
-    '''
+    
 
 
 
