@@ -227,7 +227,12 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
     guess_samples = k + z + 1
     r_map_matr = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
     r_map_matr[:guess_samples, :guess_samples] = all_dist_squared[:guess_samples, :guess_samples]
-    r_squared = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+
+
+    #r_squared = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+    r_squared = all_dist_squared[r_map_matr].min(initial=all_dist_squared[0,1]) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+
+
     print("Initial guess =", np.sqrt(r_squared))
 
     while True:
@@ -241,7 +246,12 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
 
             for current_pt in range(n):
                 if iter_weights[current_pt] > 0:    # since every covered point gets its weight value inside of iter_weight changed to 0 we can assume a new center won't be one of such values(better performance)
-                    current_weight = np.sum(a=iter_weights, dtype=float, where=all_dist_squared[current_pt] < ball_radius_squared)
+
+
+                    #current_weight = np.sum(a=iter_weights, dtype=float, where=all_dist_squared[current_pt] < ball_radius_squared)
+                    current_weight = np.sum(a=iter_weights[all_dist_squared[current_pt] < ball_radius_squared], dtype=float)
+
+
                     if current_weight > best_weight:
                         best_weight = current_weight
                         best_pt_id = current_pt
