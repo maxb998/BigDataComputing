@@ -144,7 +144,7 @@ def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int) -> List[Tuple
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
     n = points.shape[0] # number of points in dataset
-    #random.seed(5000)
+    random.seed(5000)
     idx_rnd = random.randint(0, n-1)
     centers = np.zeros(shape=(k, points.shape[1]), dtype=float)
 
