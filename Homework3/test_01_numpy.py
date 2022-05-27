@@ -230,7 +230,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
 
 
     #r_squared = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
-    r_squared = all_dist_squared[r_map_matr].min(initial=all_dist_squared[0,1]) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+    r_squared = all_dist_squared[r_map_matr].min() / 4.  # because it is squared so r^2 / 4 = (r/2)^2
 
 
     print("Initial guess =", np.sqrt(r_squared))
