@@ -250,7 +250,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
                 S = S[:i]   # generate new ndarray which size matches the number of centers found
                 break
             S[i] = P[best_pt_id]    # add new center
-            ball_radius_squared: float = np.square(3.+4.*alpha)*r_squared # used when removing new covered points
+            ball_radius_squared = np.square(3.+4.*alpha)*r_squared # used when removing new covered points
             iter_weights[all_dist_squared[best_pt_id] < ball_radius_squared] = 0.
 
         outliers_w = np.sum(a=iter_weights) # sum all weights of the points that are still uncovered
