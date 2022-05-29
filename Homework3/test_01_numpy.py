@@ -116,8 +116,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float,
 # Method extractCoreset: extract a coreset from a given iterator
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int) -> List[Tuple]:   # numpy version
-    temp = list(iter)   # convert to list before and than to ndarray(needed for some reason(compatibility?))
-    partition = np.array(temp, dtype=float)
+    partition = np.fromiter(iter=iter, dtype=float)
     centers = kCenterFFT(partition, points)
     weights = computeWeights(partition, centers)
     
