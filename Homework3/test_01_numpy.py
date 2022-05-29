@@ -49,7 +49,7 @@ def main():
     
     # Compute the value of the objective function
     start = time.time()
-    objective = computeObjective(inputPoints, solution, z)
+    objective = computeObjective(inputPoints, solution, z, N, L)
     end = time.time()
     print("Objective function =", objective)
     print("Time to compute objective function:", str((end-start)*1000.), "ms")
@@ -256,9 +256,9 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method computeObjective: computes objective function
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def computeObjective(points: RDD, solution: List[Tuple], z: int) -> float :
+def computeObjective(points: RDD, solution: List[Tuple], z: int, n: int, L: int) -> float :
     
-    intermediateRDD = points.mapPartitions(lambda iterator: find_max_Z_plus_one_points(iter=iterator, toKeep=(z+1), solution=solution))
+    intermediateRDD = points.mapPartitions(lambda iterator: find_max_Z_plus_one_points(iter=iterator, toKeep=(z+1), solution=solution, start_arr_size=n/L))
 
     elem = intermediateRDD.collect()
 
@@ -272,9 +272,29 @@ def computeObjective(points: RDD, solution: List[Tuple], z: int) -> float :
     return np.sqrt(np.max(farthest_points))   # sqrt needed because, like in the rest of the algorithm, all the distances are squared
 
 
-def find_max_Z_plus_one_points(iter: Iterable, toKeep: int, solution: List[Tuple[float, ...]]) -> List[float]:
+def find_max_Z_plus_one_points(iter: Iterable, toKeep: int, solution: List[Tuple[float, ...]], start_arr_size: int) -> List[float]:
 
-    part_pts = np.array(list(iter))
+    for elem in iter:
+        first = tuple(elem)
+        break
+
+    dims = len(first)
+    part_pts = np.zeros(shape=(int(start_arr_size*1.1),dims), dtype=np.float64)
+    part_pts[0] = first
+    del(first)  # release ram
+    n = 1
+
+    for elem in iter:
+        part_pts[n] = tuple(elem)
+        if n >= part_pts.shape[0]:
+            part_pts.resize((int(part_pts.shape[0]*1.1),dims))
+        n += 1
+    part_pts.resize(n,dims)
+
+
+
+
+    #part_pts = np.array(list(iter))
     sol = np.array(solution)
     n, k = part_pts.shape[0], sol.shape[0]
 
