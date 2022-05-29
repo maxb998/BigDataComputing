@@ -141,12 +141,12 @@ def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
 
     centers[0] = points[idx_rnd]
 
-    dist_from_nearest_center = np.sum(a=np.square(points - points[idx_rnd]), axis=1, dtype=float)  #compute square distance between first center and all points (including itself)
+    dist_from_nearest_center = np.sum(a=np.square(points - points[idx_rnd]), axis=1, dtype=np.float32)  #compute square distance between first center and all points (including itself)
 
     for i in range(k-1):
         centers[i+1] = points[np.argmax(a=dist_from_nearest_center)]    # add to the set of centers the point which is the farthers from the other points in the center
 
-        dist_from_new_center = np.sum(a=np.square(points - centers[i+1]), axis=1, dtype=float)
+        dist_from_new_center = np.sum(a=np.square(points - centers[i+1]), axis=1, dtype=np.float32)
         np.minimum(dist_from_nearest_center, dist_from_new_center, out=dist_from_nearest_center)
 
     return centers
@@ -157,9 +157,9 @@ def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
 def computeWeights(points: np.ndarray, centers: np.ndarray) -> np.ndarray:
     weights = np.zeros(shape=centers.shape[0], dtype=int)   # init wheights array
 
-    distances = np.zeros(shape=centers.shape[0], dtype=float)
+    distances = np.zeros(shape=centers.shape[0], dtype=np.float32)
     for i in range(points.shape[0]):
-        np.sum(a=np.square(centers - points[i]), out=distances, axis=1, dtype=float)    # store in "distances" the distance between a point and each fft center
+        np.sum(a=np.square(centers - points[i]), out=distances, axis=1, dtype=np.float32)    # store in "distances" the distance between a point and each fft center
         weights[np.argmin(distances)] += 1      # add one unit of weight to
 
     return weights
@@ -205,7 +205,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
 
             for current_pt in range(n):
                 if iter_weights[current_pt] > 0:    # since every covered point gets its weight value inside of iter_weight changed to 0 we can assume a new center won't be one of such values(better performance)
-                    current_weight = np.sum(a=iter_weights[all_dist_squared[current_pt] < ball_radius_squared], dtype=float)
+                    current_weight = np.sum(a=iter_weights[all_dist_squared[current_pt] < ball_radius_squared], dtype=int)
                     if current_weight > best_weight:
                         best_weight = current_weight
                         best_pt_id = current_pt
@@ -252,14 +252,13 @@ def computeObjective(points: RDD, solution: List[Tuple], z: int) -> float :
 
 def find_max_Z_plus_one_points(iter: Iterable, toKeep: int, solution: List[Tuple[float, ...]]) -> List[float]:
 
-    temp = list(iter)
-    part_pts = np.array(temp)
+    part_pts = np.array(list(iter))
     sol = np.array(solution)
     n, k = part_pts.shape[0], sol.shape[0]
 
-    dist_from_centers = np.zeros(shape=(n,k), dtype= float)
+    dist_from_centers = np.zeros(shape=(n,k), dtype=np.float32)
     for i in range(n):
-        np.sum(np.square(np.subtract(part_pts[i], sol)), out=dist_from_centers[i], axis=1, dtype=float)
+        np.sum(np.square(np.subtract(part_pts[i], sol)), out=dist_from_centers[i], axis=1, dtype=dist_from_centers.dtype)
 
     min_dist_from_centers = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
