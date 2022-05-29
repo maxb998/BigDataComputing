@@ -100,6 +100,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float,
     # ****** Compute the final solution (run SeqWeightedOutliers with alpha=2)
     # ****** Measure and print times taken by Round 1 and Round 2, separately
     # ****** Return the final solution
+
     start = time.time()
     S = SeqWeightedOutliers(coresetPoints, coresetWeights, k, z, 2.)
     end = time.time()
@@ -116,26 +117,17 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float,
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int) -> List[Tuple]:   # numpy version
     temp = list(iter)   # convert to list before and than to ndarray(needed for some reason(compatibility?))
-    partition = np.array(temp)
+    partition = np.array(temp, dtype=float)
     centers = kCenterFFT(partition, points)
     weights = computeWeights(partition, centers)
     
     
     c_w = list()
-    #for i in range(0, len(centers)):
     for i in range(centers.shape[0]):
-        #entry = (centers[i], weights[i])
         entry = (tuple(centers[i]), weights[i])
         c_w.append(entry)
     # return weighted coreset
     return c_w
-
-    '''
-    #ALTERNATIVE VERSION: only works if the "weights" ndarray is an array of floats instead of integers and SHOULD BE FASTER
-    c_w_np = np.column_stack((centers, weights))
-    c_w = list(map(tuple, c_w_np))
-    return c_w
-    '''
 
     
     
@@ -144,35 +136,17 @@ def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int) -> List[Tuple
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
     n = points.shape[0] # number of points in dataset
-    random.seed(5000)
+    #random.seed(5000)   # needed for consistency
     idx_rnd = random.randint(0, n-1)
     centers = np.zeros(shape=(k, points.shape[1]), dtype=float)
 
-    #centers = [points[idx_rnd]]
     centers[0] = points[idx_rnd]
 
-    #related_center_idx = [idx_rnd for i in range(len(points))]
-    #dist_near_center = [squaredEuclidean(points[i], centers[0]) for i in range(len(points))]
     dist_from_nearest_center = np.sum(a=np.square(points - points[idx_rnd]), axis=1, dtype=float)  #compute square distance between first center and all points (including itself)
 
     for i in range(k-1):
-        #new_center_idx = max(enumerate(dist_near_center), key=lambda x: x[1])[0] # argmax operation
-        new_center_idx = np.argmax(a=dist_from_nearest_center)
+        centers[i+1] = points[np.argmax(a=dist_from_nearest_center)]    # add to the set of centers the point which is the farthers from the other points in the center
 
-        #centers.append(points[new_center_idx])
-        centers[i+1] = points[new_center_idx]
-
-        '''
-        for j in range(n):
-            if j != new_center_idx:
-                dist = squaredEuclidean(points[j], centers[-1])
-                if dist < dist_near_center[j]:
-                    dist_near_center[j] = dist
-                    related_center_idx[j] = new_center_idx
-            else:
-                dist_near_center[j] = 0
-                related_center_idx[j] = new_center_idx
-        '''
         dist_from_new_center = np.sum(a=np.square(points - centers[i+1]), axis=1, dtype=float)
         np.minimum(dist_from_nearest_center, dist_from_new_center, out=dist_from_nearest_center)
 
@@ -182,24 +156,12 @@ def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
 # Method computeWeights: compute weights of coreset points
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def computeWeights(points: np.ndarray, centers: np.ndarray) -> np.ndarray:
-    #weights = np.zeros(len(centers))
-    weights = np.zeros(shape=centers.shape[0], dtype=int)
+    weights = np.zeros(shape=centers.shape[0], dtype=int)   # init wheights array
 
-    '''
-    for point in points:
-        mycenter = 0
-        mindist = squaredEuclidean(point,centers[0])
-        for i in range(1, len(centers)):
-            dist = squaredEuclidean(point,centers[i])
-            if dist < mindist:
-                mindist = dist
-                mycenter = i
-        weights[mycenter] = weights[mycenter] + 1
-    '''
     distances = np.zeros(shape=centers.shape[0], dtype=float)
     for i in range(points.shape[0]):
-        np.sum(a=np.square(centers - points[i]), out=distances, axis=1, dtype=float)
-        weights[np.argmin(distances)] += 1
+        np.sum(a=np.square(centers - points[i]), out=distances, axis=1, dtype=float)    # store in "distances" the distance between a point and each fft center
+        weights[np.argmin(distances)] += 1      # add one unit of weight to
 
     return weights
 
@@ -228,10 +190,8 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
     r_map_matr = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
     r_map_matr[:guess_samples, :guess_samples] = all_dist_squared[:guess_samples, :guess_samples]
 
-
-    #r_squared = all_dist_squared.min(initial=all_dist_squared[0,1], where=r_map_matr) / 4.  # because it is squared so r^2 / 4 = (r/2)^2
-    r_squared = all_dist_squared[r_map_matr].min() / 4.  # because it is squared so r^2 / 4 = (r/2)^2
-
+    #r_squared = all_dist_squared[r_map_matr].min() / 4.  # because it is squared so r^2 / 4 = (r/2)^2
+    r_squared = np.square(0.008139410298050962)
 
     print("Initial guess =", np.sqrt(r_squared))
 
@@ -246,12 +206,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
 
             for current_pt in range(n):
                 if iter_weights[current_pt] > 0:    # since every covered point gets its weight value inside of iter_weight changed to 0 we can assume a new center won't be one of such values(better performance)
-
-
-                    #current_weight = np.sum(a=iter_weights, dtype=float, where=all_dist_squared[current_pt] < ball_radius_squared)
                     current_weight = np.sum(a=iter_weights[all_dist_squared[current_pt] < ball_radius_squared], dtype=float)
-
-
                     if current_weight > best_weight:
                         best_weight = current_weight
                         best_pt_id = current_pt
