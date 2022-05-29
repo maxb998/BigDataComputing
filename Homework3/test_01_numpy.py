@@ -45,7 +45,7 @@ def main():
     print("Time to read from file:", str((end-start)*1000.), "ms")
 
     # Solve the problem
-    solution = MR_kCenterOutliers(inputPoints, k, z, L)
+    solution = MR_kCenterOutliers(inputPoints, k, z, L, N)
     
     # Compute the value of the objective function
     start = time.time()
@@ -70,16 +70,20 @@ def strToVector(str: str) -> Tuple[float, ...]:
     out = tuple(map(float, str.split(',')))
     return out
 
+# &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+# Method 
+# &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
 
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method MR_kCenterOutliers: MR algorithm for k-center with outliers
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float, ...]]:
+def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tuple[float, ...]]:
 
     
     #------------- ROUND 1 ---------------------------
 
-    coreset = points.mapPartitions(lambda iterator: extractCoreset(iterator, k+z+1))
+    coreset = points.mapPartitions(lambda iterator: extractCoreset(iterator, k+z+1, n/L))
     
     # END OF ROUND 1
 
@@ -115,8 +119,26 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int) -> List[Tuple[float,
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method extractCoreset: extract a coreset from a given iterator
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int) -> List[Tuple]:   # numpy version
-    partition = np.array(list(iter), dtype=np.float32)
+def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int, start_arr_size: int) -> List[Tuple]:   # numpy version
+
+    for elem in iter:
+        first = tuple(elem)
+        break
+
+    dims = len(first)
+    partition = np.zeros(shape=(int(start_arr_size*1.1),dims), dtype=np.float64)
+    partition[0] = first
+    del(first)  # release ram
+    n = 1
+
+    for elem in iter:
+        partition[n] = tuple(elem)
+        if n >= partition.shape[0]:
+            partition.resize((int(partition.shape[0]*1.1),dims))
+        n += 1
+    partition.resize(n,dims)
+
+    #partition = np.array(list(iter), dtype=np.float64)
     centers = kCenterFFT(partition, points)
     weights = computeWeights(partition, centers)
     
@@ -141,12 +163,12 @@ def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
 
     centers[0] = points[idx_rnd]
 
-    dist_from_nearest_center = np.sum(a=np.square(points - points[idx_rnd]), axis=1, dtype=np.float32)  #compute square distance between first center and all points (including itself)
+    dist_from_nearest_center = np.sum(a=np.square(points - points[idx_rnd]), axis=1, dtype=np.float64)  #compute square distance between first center and all points (including itself)
 
     for i in range(k-1):
         centers[i+1] = points[np.argmax(a=dist_from_nearest_center)]    # add to the set of centers the point which is the farthers from the other points in the center
 
-        dist_from_new_center = np.sum(a=np.square(points - centers[i+1]), axis=1, dtype=np.float32)
+        dist_from_new_center = np.sum(a=np.square(points - centers[i+1]), axis=1, dtype=np.float64)
         np.minimum(dist_from_nearest_center, dist_from_new_center, out=dist_from_nearest_center)
 
     return centers
@@ -157,9 +179,9 @@ def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
 def computeWeights(points: np.ndarray, centers: np.ndarray) -> np.ndarray:
     weights = np.zeros(shape=centers.shape[0], dtype=int)   # init wheights array
 
-    distances = np.zeros(shape=centers.shape[0], dtype=np.float32)
+    distances = np.zeros(shape=centers.shape[0], dtype=np.float64)
     for i in range(points.shape[0]):
-        np.sum(a=np.square(centers - points[i]), out=distances, axis=1, dtype=np.float32)    # store in "distances" the distance between a point and each fft center
+        np.sum(a=np.square(centers - points[i]), out=distances, axis=1, dtype=np.float64)    # store in "distances" the distance between a point and each fft center
         weights[np.argmin(distances)] += 1      # add one unit of weight to
 
     return weights
@@ -256,7 +278,7 @@ def find_max_Z_plus_one_points(iter: Iterable, toKeep: int, solution: List[Tuple
     sol = np.array(solution)
     n, k = part_pts.shape[0], sol.shape[0]
 
-    dist_from_centers = np.zeros(shape=(n,k), dtype=np.float32)
+    dist_from_centers = np.zeros(shape=(n,k), dtype=np.float64)
     for i in range(n):
         np.sum(np.square(np.subtract(part_pts[i], sol)), out=dist_from_centers[i], axis=1, dtype=dist_from_centers.dtype)
 
