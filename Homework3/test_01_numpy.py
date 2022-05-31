@@ -6,7 +6,7 @@ import random
 import sys
 from typing import List, Tuple, Iterable
 
-from pyspark import RDD # needed fot typing purpuses
+from pyspark import RDD # needed fot typing purpuses(can be removed if the all the typos 'RDD' are removed from parameters in function definitions)
 
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -31,8 +31,6 @@ def main():
     # Read points from file
     start = time.time()
     inputPoints = sc.textFile(filename, L).map(lambda x : strToVector(x)).repartition(L).cache()
-    #inputPoints = sc.textFile(filename).map(lambda x : strToVector(x)).repartition(L).cache()
-    #inputPoints = sc.textFile(filename, L).map(lambda x : strToVector(x), preservesPartitioning=True).cache()  # alternative version which seems to do the same thing
     N = inputPoints.count()
     end = time.time()
 
@@ -73,17 +71,39 @@ def strToVector(str: str) -> Tuple[float, ...]:
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method 
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+def loadNdarrayFromIterable(iter: Iterable, start_arr_size: int) -> np.ndarray:
+    
+    # read and save the first element to get the number of dimension of the points in the dataset
+    for elem in iter:
+        first = tuple(elem)
+        break
+    dims = len(first)
+    
+    arr = np.zeros(shape=(int(start_arr_size*1.1),dims), dtype=np.float64)  # init container of all points
+    arr[0] = first  # write in the proper array the first element
+    del(first)  # release ram
+    n = 1   # init counter for the number of elements inside the partition
 
+    # now to fill the array with the rdd partition data
+    for elem in iter:
+        arr[n] = tuple(elem)
+        n += 1
+        if n >= arr.shape[0]:   # check if the array is full
+            arr.resize((int(arr.shape[0]*1.1),dims))    # if array is full: increase its size
+    
+    arr.resize(n,dims)  # resize array to fit the data collected
+    return arr
+    
 
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method MR_kCenterOutliers: MR algorithm for k-center with outliers
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tuple[float, ...]]:
+def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tuple]:
 
     
     #------------- ROUND 1 ---------------------------
 
-    coreset = points.mapPartitions(lambda iterator: extractCoreset(iterator, k+z+1, n/L))
+    coreset = points.mapPartitions(lambda iterator: extractCoreset(iter=iterator, points=(k+z+1), expected_num_of_pts=(n/L)))
     
     # END OF ROUND 1
 
@@ -106,7 +126,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
     # ****** Return the final solution
 
     start = time.time()
-    S = SeqWeightedOutliers(coresetPoints, coresetWeights, k, z, 2.)
+    S = SeqWeightedOutliers(P=coresetPoints, W=coresetWeights, k=k, z=z, alpha=2.)
     end = time.time()
     time_round_2 = (end - start) * 1000.
 
@@ -119,28 +139,12 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method extractCoreset: extract a coreset from a given iterator
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int, start_arr_size: int) -> List[Tuple]:   # numpy version
+def extractCoreset(iter: Iterable, points: int, expected_num_of_pts: int) -> List[Tuple]:   # numpy version
 
-    for elem in iter:
-        first = tuple(elem)
-        break
-
-    dims = len(first)
-    partition = np.zeros(shape=(int(start_arr_size*1.1),dims), dtype=np.float64)
-    partition[0] = first
-    del(first)  # release ram
-    n = 1
-
-    for elem in iter:
-        partition[n] = tuple(elem)
-        if n >= partition.shape[0]:
-            partition.resize((int(partition.shape[0]*1.1),dims))
-        n += 1
-    partition.resize(n,dims)
-
-    #partition = np.array(list(iter), dtype=np.float64)
-    centers = kCenterFFT(partition, points)
-    weights = computeWeights(partition, centers)
+    partitionPts = loadNdarrayFromIterable(iter=iter, start_arr_size=expected_num_of_pts)
+    #partitionPts = np.array(list(iter), dtype=np.float64)  # this one is faster but requires double ram space
+    centers = kCenterFFT(partitionPts, points)
+    weights = computeWeights(partitionPts, centers)
     
     
     c_w = list()
@@ -211,8 +215,7 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
     r_map_matr = np.zeros(shape=(n,n), dtype=np.bool8)  # needed to avoid considering the diagonal(which is all zeros) in the computation of the minimum
     r_map_matr[:guess_samples, :guess_samples] = all_dist_squared[:guess_samples, :guess_samples]
 
-    #r_squared = all_dist_squared[r_map_matr].min() / 4.  # because it is squared so r^2 / 4 = (r/2)^2
-    r_squared = np.square(0.008139410298050962)
+    r_squared = all_dist_squared[r_map_matr].min() / 4.  # because it is squared so r^2 / 4 = (r/2)^2
 
     print("Initial guess =", np.sqrt(r_squared))
 
@@ -258,11 +261,9 @@ def SeqWeightedOutliers(P: List[Tuple], W: List[int], k: int, z: int, alpha: flo
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def computeObjective(points: RDD, solution: List[Tuple], z: int, n: int, L: int) -> float :
     
-    intermediateRDD = points.mapPartitions(lambda iterator: find_max_Z_plus_one_points(iter=iterator, toKeep=(z+1), solution=solution, start_arr_size=n/L))
+    intermediateRDD = points.mapPartitions(lambda iterator: find_max_Z_plus_one_points(iter=iterator, distsToKeep=(z+1), solution=solution, expected_num_of_pts=(n/L)))
 
-    elem = intermediateRDD.collect()
-
-    farthest_points = np.array(elem)
+    farthest_points = np.array(intermediateRDD.collect())
 
     # removing outliers
     for i in range(z):
@@ -272,41 +273,30 @@ def computeObjective(points: RDD, solution: List[Tuple], z: int, n: int, L: int)
     return np.sqrt(np.max(farthest_points))   # sqrt needed because, like in the rest of the algorithm, all the distances are squared
 
 
-def find_max_Z_plus_one_points(iter: Iterable, toKeep: int, solution: List[Tuple[float, ...]], start_arr_size: int) -> List[float]:
+def find_max_Z_plus_one_points(iter: Iterable, distsToKeep: int, solution: List[Tuple[float, ...]], expected_num_of_pts: int) -> List[float]:
 
-    for elem in iter:
-        first = tuple(elem)
-        break
+    partitionPts = loadNdarrayFromIterable(iter=iter, start_arr_size=expected_num_of_pts)
+    #part_pts = np.array(list(iter))    # this one is faster but requires double ram space
 
-    dims = len(first)
-    part_pts = np.zeros(shape=(int(start_arr_size*1.1),dims), dtype=np.float64)
-    part_pts[0] = first
-    del(first)  # release ram
-    n = 1
-
-    for elem in iter:
-        part_pts[n] = tuple(elem)
-        if n >= part_pts.shape[0]:
-            part_pts.resize((int(part_pts.shape[0]*1.1),dims))
-        n += 1
-    part_pts.resize(n,dims)
-
-
-
-
-    #part_pts = np.array(list(iter))
     sol = np.array(solution)
-    n, k = part_pts.shape[0], sol.shape[0]
+    n, k = partitionPts.shape[0], sol.shape[0]
+    maxDists = np.zeros(shape=distsToKeep, dtype=np.float64)
 
     dist_from_centers = np.zeros(shape=(n,k), dtype=np.float64)
     for i in range(n):
-        np.sum(np.square(np.subtract(part_pts[i], sol)), out=dist_from_centers[i], axis=1, dtype=dist_from_centers.dtype)
+        np.sum(np.square(np.subtract(partitionPts[i], sol)), out=dist_from_centers[i], axis=1, dtype=dist_from_centers.dtype)
 
-    min_dist_from_centers = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
+    min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
-    part_max_dists = min_dist_from_centers[min_dist_from_centers.argsort()[n-toKeep:]]  # stores the biggest toKeep's values from min_dist_from_centers
+    #part_max_dists = min_dist_from_centers[min_dist_from_centers.argsort()[n-distsToKeep:]]  # stores the biggest distsToKeep's values from min_dist_from_centers ***POSSIBLY SORTS AN UNECESSARY NUMBER OF ITEMS
+    #return list(part_max_dists)
 
-    return list(part_max_dists)
+    for i in range(distsToKeep):
+        max_id = min_dist_from_centers.argmax()
+        maxDists[i] = min_dist_from_centers[max_id]
+        min_dist_from_centers[max_id] = 0.
+
+    return list(maxDists)
 
 
 # Just start the main program
