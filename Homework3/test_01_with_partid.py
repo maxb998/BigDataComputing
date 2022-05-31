@@ -102,7 +102,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
             if elems[j] == i:
                 break
         j += 1
-        while (j < n + L) and (type(elems[j]) != type(int)):
+        while (j < n + L) and (type(elems[j]) != type(int(2))):
             coresetPoints.append(j[0])
             coresetWeights.append(j[1])
             j += 1
