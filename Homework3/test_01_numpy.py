@@ -285,7 +285,7 @@ def find_max_Z_plus_one_points(iter: Iterable, distsToKeep: int, solution: List[
     for i in range(n):
         np.sum(np.square(np.subtract(partitionPts[i], sol)), out=dist_from_centers[i], axis=1, dtype=dist_from_centers.dtype)
 
-    min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
+    min_dist_from_centers = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
     #part_max_dists = min_dist_from_centers[min_dist_from_centers.argsort()[n-distsToKeep:]]  # stores the biggest distsToKeep's values from min_dist_from_centers ***POSSIBLY SORTS AN UNECESSARY NUMBER OF ITEMS 
     #return list(part_max_dists)
