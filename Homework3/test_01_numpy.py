@@ -83,7 +83,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
     
     #------------- ROUND 1 ---------------------------
 
-    coreset = points.mapPartitions(lambda iterator: extractCoreset(iterator, k+z+1, n/L))
+    coreset = points.mapPartitionsWithIndex(lambda iterator: extractCoreset(iterator, k+z+1, n/L))
     
     # END OF ROUND 1
 
@@ -157,7 +157,7 @@ def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int, start_arr_siz
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
     n = points.shape[0] # number of points in dataset
-    #random.seed(5000)   # needed for consistency
+    random.seed(5000)   # needed for consistency
     idx_rnd = random.randint(0, n-1)
     centers = np.zeros(shape=(k, points.shape[1]), dtype=float)
 
