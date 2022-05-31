@@ -142,7 +142,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
 def extractCoreset(iter: Iterable, points: int, expected_num_of_pts: int) -> List[Tuple]:   # numpy version
 
     partitionPts = loadNdarrayFromIterable(iter=iter, start_arr_size=expected_num_of_pts)
-    #partitionPts = np.array(list(iter), dtype=np.float64)  # this one is faster but requires double ram space
+    #partitionPts = np.array(list(iter), dtype=np.float64)  # this one is faster but requires double ram space which is an issue with the largest dataset(HIGGS10M7D)
     centers = kCenterFFT(partitionPts, points)
     weights = computeWeights(partitionPts, centers)
     
@@ -181,7 +181,7 @@ def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
 # Method computeWeights: compute weights of coreset points
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def computeWeights(points: np.ndarray, centers: np.ndarray) -> np.ndarray:
-    weights = np.zeros(shape=centers.shape[0], dtype=int)   # init wheights array
+    weights = np.zeros(shape=centers.shape[0], dtype=int)   # init wheights array(size equal to the number of centers)
 
     distances = np.zeros(shape=centers.shape[0], dtype=np.float64)
     for i in range(points.shape[0]):
@@ -276,11 +276,10 @@ def computeObjective(points: RDD, solution: List[Tuple], z: int, n: int, L: int)
 def find_max_Z_plus_one_points(iter: Iterable, distsToKeep: int, solution: List[Tuple[float, ...]], expected_num_of_pts: int) -> List[float]:
 
     partitionPts = loadNdarrayFromIterable(iter=iter, start_arr_size=expected_num_of_pts)
-    #part_pts = np.array(list(iter))    # this one is faster but requires double ram space
+    #partitionPts = np.array(list(iter))    # this one is faster but requires double ram space which is an issue with the largest dataset(HIGGS10M7D)
 
     sol = np.array(solution)
     n, k = partitionPts.shape[0], sol.shape[0]
-    maxDists = np.zeros(shape=distsToKeep, dtype=np.float64)
 
     dist_from_centers = np.zeros(shape=(n,k), dtype=np.float64)
     for i in range(n):
@@ -288,14 +287,14 @@ def find_max_Z_plus_one_points(iter: Iterable, distsToKeep: int, solution: List[
 
     min_dist_from_centers: np.ndarray = dist_from_centers.min(axis=1)   # stores the distance between each point and the closest solution to it
 
-    #part_max_dists = min_dist_from_centers[min_dist_from_centers.argsort()[n-distsToKeep:]]  # stores the biggest distsToKeep's values from min_dist_from_centers ***POSSIBLY SORTS AN UNECESSARY NUMBER OF ITEMS
+    #part_max_dists = min_dist_from_centers[min_dist_from_centers.argsort()[n-distsToKeep:]]  # stores the biggest distsToKeep's values from min_dist_from_centers ***POSSIBLY SORTS AN UNECESSARY NUMBER OF ITEMS 
     #return list(part_max_dists)
 
+    maxDists = np.zeros(shape=distsToKeep, dtype=np.float64)
     for i in range(distsToKeep):
         max_id = min_dist_from_centers.argmax()
         maxDists[i] = min_dist_from_centers[max_id]
         min_dist_from_centers[max_id] = 0.
-
     return list(maxDists)
 
 
