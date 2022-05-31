@@ -114,6 +114,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
     end = time.time()
     time_round_1 = (end -start) * 1000.
 
+    start = time.time()     # round 2 start time measure
     coresetPoints = []
     coresetWeights = []
     for i in elems:
@@ -125,9 +126,9 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
     # ****** Measure and print times taken by Round 1 and Round 2, separately
     # ****** Return the final solution
 
-    start = time.time()
     S = SeqWeightedOutliers(P=coresetPoints, W=coresetWeights, k=k, z=z, alpha=2.)
-    end = time.time()
+
+    end = time.time()       # round 2 end time measure
     time_round_2 = (end - start) * 1000.
 
     print("Time Round 1:", time_round_1, "ms")
