@@ -159,7 +159,7 @@ def extractCoreset(iter, points):
 # Method kCenterFFT: Farthest-First Traversal
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 def kCenterFFT(points, k):
-    random.seed(5000)
+    #random.seed(5000)
     idx_rnd = random.randint(0, len(points)-1)
     centers = [points[idx_rnd]]
     related_center_idx = [idx_rnd for i in range(len(points))]
