@@ -83,7 +83,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
     
     #------------- ROUND 1 ---------------------------
 
-    coreset = points.mapPartitions(lambda iterator: extractCoreset(iterator, k+z+1, n/L))
+    coreset = points.mapPartitionsWithIndex(lambda part_id, iterator: extractCoreset(part_id, iterator, k+z+1, n/L))
     
     # END OF ROUND 1
 
@@ -94,12 +94,19 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
     end = time.time()
     time_round_1 = (end -start) * 1000.
 
+    # reorder partiton results by partition id
     coresetPoints = []
     coresetWeights = []
-    for i in elems:
-        coresetPoints.append(i[0])
-        coresetWeights.append(i[1])
-    
+    for i in range(L):
+        for j in range(len(elems)):
+            if elems[j] == i:
+                break
+        j += 1
+        while (j < n + L) and (type(elems[j]) != type(int)):
+            coresetPoints.append(j[0])
+            coresetWeights.append(j[1])
+            j += 1
+ 
     # ****** ADD YOUR CODE
     # ****** Compute the final solution (run SeqWeightedOutliers with alpha=2)
     # ****** Measure and print times taken by Round 1 and Round 2, separately
@@ -119,7 +126,7 @@ def MR_kCenterOutliers(points: RDD, k: int, z: int, L: int, n: int) -> List[Tupl
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 # Method extractCoreset: extract a coreset from a given iterator
 # &&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int, start_arr_size: int) -> List[Tuple]:   # numpy version
+def extractCoreset(part_id: int, iter: Iterable[Tuple[float, ...]], points: int, start_arr_size: int) -> List[Tuple]:   # numpy version
 
     for elem in iter:
         first = tuple(elem)
@@ -144,6 +151,7 @@ def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int, start_arr_siz
     
     
     c_w = list()
+    c_w.append(part_id)
     for i in range(centers.shape[0]):
         entry = (tuple(centers[i]), weights[i])
         c_w.append(entry)
@@ -158,7 +166,8 @@ def extractCoreset(iter: Iterable[Tuple[float, ...]], points: int, start_arr_siz
 def kCenterFFT(points: np.ndarray, k: int) -> np.ndarray:   # numpy version
     n = points.shape[0] # number of points in dataset
     #random.seed(5000)   # needed for consistency
-    idx_rnd = random.randint(0, n-1)
+    #idx_rnd = random.randint(0, n-1)
+    idx_rnd = 0
     centers = np.zeros(shape=(k, points.shape[1]), dtype=float)
 
     centers[0] = points[idx_rnd]
