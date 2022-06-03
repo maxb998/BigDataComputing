@@ -34,7 +34,7 @@ def main():
     N = inputPoints.count()
     end = time.time()
 
-    # Pring input parameters
+    # Print input parameters
     print("File :" + filename)
     print("Number of points N =", N)
     print("Number of centers k =", k)
